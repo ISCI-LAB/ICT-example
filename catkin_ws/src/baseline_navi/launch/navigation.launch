@@ -1,0 +1,8 @@
+<launch>
+    <arg name="pkg_name" value="baseline_navi"/>
+    <arg name="teleop" default="False"/>
+
+    <node pkg="$(arg pkg_name)" type="navigation.py" name="navigation"  output="screen">
+        <param name="teleop" value="$(arg teleop)" />
+    </node>
+</launch>
