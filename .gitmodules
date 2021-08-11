@@ -4,6 +4,6 @@
 [submodule "catkin_ws/src/apriltag_ros"]
 	path = catkin_ws/src/apriltag_ros
 	url = https://github.com/ISCI-LAB/apriltag_ros.git
-[submodule "catkin_ws/src/icp_gazebo"]
-	path = catkin_ws/src/icp_gazebo
-	url = https://github.com/ISCI-LAB/icp_gazebo.git
+[submodule "catkin_ws/src/ict_gazebo"]
+	path = catkin_ws/src/ict_gazebo
+	url = https://github.com/ISCI-LAB/ict_gazebo.git
