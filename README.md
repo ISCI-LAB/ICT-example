@@ -22,7 +22,7 @@ catkin build
 1. Launch locobot gazebo simulation program.
 
     ```bash
-    roslaunch icp_gazebo locobot_sim.launch world:=placing
+    roslaunch ict_gazebo locobot_sim.launch world:=placing use_camera:=true
     ```
 
 2. Launch apriltag detector
