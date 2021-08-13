@@ -42,7 +42,8 @@ RUN apt-get update && apt-get install -y \
     libaudit-dev \
     tzdata \
     python-pip \
-    python3-pip 
+    python3-pip \
+    python3-catkin-tools
 
 #################################### GTSAM ####################################
 
