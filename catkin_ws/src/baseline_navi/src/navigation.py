@@ -54,17 +54,17 @@ class LocobotController(object):
                 self.go_to_relative(posn)
                 self.bot.base.stop()
                 rospy.loginfo("Achieve the goal.")
-                self.stage=3
+
                 try:
-                    resp=self.stage_service(3,"navigation")
-                    if resp :
+                    resp = self.stage_service(3, "navigation")
+
+                    if resp.success :
                         print("success change stage to 3")
+                        self.stage = 3
                         
                     return resp
-                except rospy.ServiceException,e:
-                    print("Service call failed: %s",e)
-                
-                
+                except rospy.ServiceException, e:
+                    print("Service call failed: %s", e)
 
     def go_to_relative(self, posn):
         self.bot.base.go_to_relative(
