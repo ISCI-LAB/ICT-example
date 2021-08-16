@@ -2,7 +2,7 @@
 import rospy
 import numpy as np
 from geometry_msgs.msg import PoseStamped
-from apriltags_ros.msg import AprilTagDetectionArray
+from apriltag_ros.msg import AprilTagDetectionArray
 import tf2_geometry_msgs
 import tf2_ros
 
@@ -25,12 +25,13 @@ class ApriltagsToGoalPoint(object):
 
         # added goal point pub code
         for tag in self.msg_tags.detections:
-            if tag.id == 1:
+            
+            if tag.id[0] == 1:
                 transform = self.tf_buffer.lookup_transform("base_link",
                                    tag.pose.header.frame_id, #source frame
                                    rospy.Time(0), #get the tf at first available time
                                    rospy.Duration(1.0))
-                pose_transformed = tf2_geometry_msgs.do_transform_pose(tag.pose, transform)
+                pose_transformed = tf2_geometry_msgs.do_transform_pose(tag.pose.pose, transform)
                 goal_pose.pose.position.x = pose_transformed.pose.position.x
                 goal_pose.pose.position.y = pose_transformed.pose.position.y
                 
@@ -42,7 +43,7 @@ class ApriltagsToGoalPoint(object):
 
                 # For debug
                 # print("pose_transformed:\n", pose_transformed.pose)
-                # print("goal_pose:\n", goal_pose)
+                print("goal_pose:\n", goal_pose)
 
                 self.goal_pub.publish(goal_pose)
 

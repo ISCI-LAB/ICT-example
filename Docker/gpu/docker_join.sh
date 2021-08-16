@@ -13,6 +13,6 @@ docker exec -it \
     --privileged \
     -e DISPLAY=${DISPLAY} \
     -e LINES="$(tput lines)" \
-    $containerid \
+    locobot \
     $BASH_OPTION
 xhost -
