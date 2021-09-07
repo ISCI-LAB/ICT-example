@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+    <group>
+        <include file="$(find baseline_navi)/launch/stage_switch.launch" />
+        <include file="$(find baseline_navi)/launch/apriltags_to_goalpoint.launch" />
+        <include file="$(find apriltag_ros)/launch/continuous_detection.launch" />
+    </group>
+</launch>
