@@ -254,7 +254,7 @@ class Grasper(object):
 
         rospy.loginfo('Going to pre-grasp pose')
         result = self.set_pose(pregrasp_position, roll=grasp_angle)
-        print("fuck", grasp_pose)
+        print("grasp_pose", grasp_pose)
         if not result:
             return False
         time.sleep(self._sleep_time)
@@ -380,7 +380,7 @@ class grasper_control(object):
         self.stage_service=rospy.ServiceProxy('baseline_navi/stage_request',StageChange)
         self.stagecb = rospy.Subscriber('baseline_navi/current_stage', TaskStage ,self.callback, queue_size = 1)
         self.grasper = Grasper(n_samples=args.n_samples, patch_size=args.patch_size)
-        print("fuck ini")
+        print(" ini")
         signal.signal(signal.SIGINT, self.grasper.signal_handler)
     def callback(self,data):
     	tmp = data.current_stage
@@ -444,7 +444,7 @@ def listener():
     rospy.init_node('listener', anonymous=True)
     # rospy.Subscriber("yourturn", Bool, callback)
     GRASPER_control = grasper_control()
-    print("fuck listener")
+    print("listener")
     rospy.spin()
 
 
