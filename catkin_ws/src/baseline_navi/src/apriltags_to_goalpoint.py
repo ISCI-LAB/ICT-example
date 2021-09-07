@@ -22,13 +22,11 @@ class ApriltagsToGoalPoint(object):
         goal_pose = PoseStamped()
         self.msg_tags = msg_tags
         self.msg_received = True
-        # print("87878\n\n")
-        # print(msg_tags)
+
         # added goal point pub code
         for tag in self.msg_tags.detections:
             
             if tag.id[0] == 1:
-                print("fuck")
                 transform = self.tf_buffer.lookup_transform("base_link",
                                    tag.pose.header.frame_id, #source frame
                                    rospy.Time(0), #get the tf at first available time
