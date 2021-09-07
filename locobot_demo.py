@@ -23,7 +23,8 @@ from geometry_msgs.msg import Quaternion, PointStamped
 from pyrobot import Robot
 from tf import TransformListener
 from std_msgs.msg import Bool
-
+from baseline_navi.srv import StageChange, StageChangeResponse
+from baseline_navi.msg import TaskStage 
 from grasp_samplers.grasp_model import GraspModel
 
 MODEL_URL = 'https://www.dropbox.com/s/fta8zebyzfrt3fw/checkpoint.pth.20?dl=0'
@@ -33,7 +34,7 @@ BASE_FRAME = 'base_link'
 KINECT_FRAME = 'camera_color_optical_frame'
 DEFAULT_PITCH = 1.57
 MIN_DEPTH = 0.1
-N_SAMPLES = 100
+N_SAMPLES = 78
 PATCH_SIZE = 100
 
 from IPython import embed
@@ -222,12 +223,12 @@ class Grasper(object):
         :rtype: bool
         """
 
-        pregrasp_position = [grasp_pose[0]+0.02,
-                             grasp_pose[1]-0.04,
+        pregrasp_position = [grasp_pose[0] + 0.01,
+                             grasp_pose[1] - 0.01,
                              self.pregrasp_height]
         # pregrasp_pose = Pose(Point(*pregrasp_position), self.default_Q)
-        grasp_angle = self.get_grasp_angle(grasp_pose)
-        grasp_position = [grasp_pose[0]+0.02, grasp_pose[1]-0.04, self.grasp_height+0.04]
+        grasp_angle = self.get_grasp_angle(grasp_pose)#+0.02 -0.04
+        grasp_position = [grasp_pose[0] + 0.01, grasp_pose[1] - 0.01, self.grasp_height+0.04]#0.04
         
         if grasp_position[1]>0.06:
           pregrasp_position[1] = pregrasp_position[1] + 0.01
@@ -253,29 +254,23 @@ class Grasper(object):
 
         rospy.loginfo('Going to pre-grasp pose')
         result = self.set_pose(pregrasp_position, roll=grasp_angle)
+        print("grasp_pose", grasp_pose)
         if not result:
             return False
         time.sleep(self._sleep_time)
 
+
+    def place(self):
         rospy.loginfo('Going to placing pose')
-        
         if self.color == 'red':
-          result = self.set_pose([0.234, -0.335, 0.3], roll=grasp_angle)
+          result = self.set_pose([0.234, -0.335, 0.3], roll=0.0)
         elif self.color == 'green':
-          result = self.set_pose([0.14, -0.335, 0.3], roll=grasp_angle)
+          result = self.set_pose([0.14, -0.335, 0.3], roll=0.0)
         elif self.color == 'blue':
-          result = self.set_pose([0.024, -0.335, 0.3], roll=grasp_angle)
+          result = self.set_pose([0.024, -0.335, 0.3], roll=0.0)
           
-	
-	#Green
-	#if grasp_position[1]>0.0 and grasp_position[1]<0.06 or grasp_position[0]>0.4:
-	#	result = self.set_pose([0.14, -0.335, 0.3], roll=grasp_angle)
-	#Blue	
-	#elif grasp_position[1]>0.06:
-  #      	result = self.set_pose([0.024, -0.335, 0.3], roll=grasp_angle)
-	#Red	
-	#elif grasp_position[1]<0.0:
-  #      	result = self.set_pose([0.234, -0.335, 0.3], roll=grasp_angle)
+    
+
 
         if not result:
             return False
@@ -285,15 +280,12 @@ class Grasper(object):
         self.robot.gripper.open()
 
         rospy.loginfo('Going to placing above pose')
-        result = self.set_pose([0.124, -0.335, 0.25], roll=grasp_angle)
+        result = self.set_pose([0.124, -0.335, 0.25], roll=0.0)
         if not result:
             return False
         time.sleep(self._sleep_time)
-
-
         return True
         time.sleep(self._sleep_time)
-
     def set_pose(self, position, pitch=DEFAULT_PITCH, roll=0.0):
         """ 
         Sets desired end-effector pose.
@@ -357,6 +349,10 @@ class Grasper(object):
         Signal handling function.
         """
         self.exit()
+    def go_to_relative(self, posn):
+        self.robot.base.go_to_relative(
+            posn, use_map=False, close_loop=True, smooth=True
+        )
 
 
 def main(args):
@@ -376,26 +372,81 @@ def main(args):
         print('\n\n Grasp Pose: \n\n {} \n\n'.format(grasp_pose))
         grasper.grasp(grasp_pose)
 
-def callback(data):
-	start = data.data
-	rospy.loginfo("start estimation")
-	grasper = Grasper(n_samples=args.n_samples, patch_size=args.patch_size)
-	#signal.signal(signal.SIGINT, grasper.signal_handler)
-	for i in range(args.n_grasps):
-		rospy.loginfo('Grasp attempt #{}'.format(i + 1))
-		success = grasper.reset()
-		if not success:
-			rospy.logerr('Arm reset failed')
-			continue
-		grasp_pose = grasper.compute_grasp(display_grasp=args.no_visualize)
-		print('\n\n Grasp Pose: \n\n {} \n\n'.format(grasp_pose))
-		grasper.grasp(grasp_pose)
-	
+class grasper_control(object):
+
+    def __init__(self):
+        self.stage = 0
+        rospy.wait_for_service('baseline_navi/stage_request')
+        self.stage_service=rospy.ServiceProxy('baseline_navi/stage_request',StageChange)
+        self.stagecb = rospy.Subscriber('baseline_navi/current_stage', TaskStage ,self.callback, queue_size = 1)
+        self.grasper = Grasper(n_samples=args.n_samples, patch_size=args.patch_size)
+        print(" ini")
+        signal.signal(signal.SIGINT, self.grasper.signal_handler)
+    def callback(self,data):
+    	tmp = data.current_stage
+        if tmp == 1:
+            self.stage = 1
+            rospy.loginfo("stage => 1. grasp now")
+
+            rospy.loginfo("start estimation")
+            # signal.signal(signal.SIGINT, self.grasper.signal_handler)
+            for i in range(args.n_grasps):
+                rospy.loginfo('Grasp attempt #{}'.format(i + 1))
+                success = self.grasper.reset()
+                if not success:
+                    rospy.logerr('Arm reset failed')
+                    continue
+                grasp_pose = self.grasper.compute_grasp(display_grasp=args.no_visualize)
+                print('\n\n Grasp Pose: \n\n {} \n\n'.format(grasp_pose))
+                self.grasper.robot.camera.set_tilt(0.0)
+                self.grasper.grasp(grasp_pose)
+            
+
+            # posn = np.asarray([0,0,2.0], dtype=np.float64, order="C")
+            # self.grasper.go_to_relative(posn)
+            # self.grasper.robot.base.stop()
+
+            try:
+                resp = self.stage_service(2,"apriltag")
+                if resp :
+                    print("success change stage to 2")
+                return resp
+            except rospy.ServiceException ,e:
+                print("service call failed:%s",e)
+            time.sleep(self._sleep_time)
+            
+        if tmp == 2:
+            self.stage = 2
+            rospy.loginfo("stage => 2. apriltag")
+        if tmp == 3:
+            self.stage = 3
+            rospy.loginfo("stage => 3. placing")
+            self.grasper.place()
+            try:
+                resp = self.stage_service(4,"go initial")
+                if resp :
+                    print("success change stage to 4")
+                return resp
+            except rospy.ServiceException ,e:
+                print("service call failed:%s",e)
+            time.sleep(self._sleep_time)
+        if tmp == 4:
+            self.stage = 4
+            rospy.loginfo("stage => 4. go initial")
+        if tmp == 0:
+            self.stage = 0
+            rospy.loginfo("stage => 0. stop")
+
+    	
+
 
 def listener():
-	rospy.init_node('listener', anonymous=True)
-	rospy.Subscriber("yourturn", Bool, callback)
-	rospy.spin()
+    rospy.init_node('listener', anonymous=True)
+    # rospy.Subscriber("yourturn", Bool, callback)
+    GRASPER_control = grasper_control()
+    print("listener")
+    rospy.spin()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process args for grasper")
@@ -404,9 +455,10 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size', help='Size of a sampled grasp patch', type=int, default=PATCH_SIZE)
     parser.add_argument('--no_visualize', help='False to visualize grasp at each iteration, True otherwise',
                         dest='display_grasp', action='store_false')
-    parser.set_defaults(no_visualize=True)
-
+    parser.set_defaults(no_visualize=False)
     args = parser.parse_args()
-    #listener()
-    main(args)
+
+    
+    listener()
+    # main(args)
     
