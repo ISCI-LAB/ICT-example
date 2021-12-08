@@ -68,8 +68,7 @@ class Motion_(object):
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
 	rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
-	self.color = ""
-	self.stage = 0 
+	self.color
     def stage_cb(self, stage_msg):
         tmp = stage_msg.current_stage
         if tmp == 3:
@@ -92,10 +91,10 @@ class Motion_(object):
 	    if not result:
 		return False
 	    try:
-                resp = self.stage_service(4, "grasp_end")
+                resp = self.stage_service(3, "apriltag_to_goal")
                 if resp.success :
-                    print("success change stage to 4")
-                    self.stage = 0
+                    print("success change stage to 3")
+                    self.stage = 3
 
             except rospy.ServiceException, e:
                 print("Service call failed: %s", e)
@@ -317,7 +316,6 @@ class Motion_(object):
         self.exit()
 def handle_motion(req):
     rospy.loginfo("Grasp attempt x={:.4f},y={:.4f},theta={:.4f}".format(req.x,req.y,req.theta))
-    self.color = req.color
     try:
         success = motion.reset()
         assert  success   
