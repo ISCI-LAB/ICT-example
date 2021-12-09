@@ -69,10 +69,10 @@ class Motion_(object):
         self._transform_listener = TransformListener()
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
         self.grasp_pub = rospy.Publisher("locobot_motion/grasp_start", Int32, queue_size = 1)
-	    rospy.wait_for_service('baseline_navi/stage_request')
+	rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
-	    self.color = ""
-	    self.stage = 0
+	self.color = ""
+	self.stage = 0
     def stage_cb(self, stage_msg):
         tmp = stage_msg.current_stage
         if tmp == 3:
@@ -86,7 +86,7 @@ class Motion_(object):
                 result = self.set_pose([0.024, -0.335, 0.3], roll=0.0)
             if not result:
             	return False
-        	time.sleep(self._sleep_time)
+            time.sleep(self._sleep_time)
     
 	    rospy.loginfo('Opening gripper')
             self.robot.gripper.open()
