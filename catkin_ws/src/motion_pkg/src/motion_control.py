@@ -24,6 +24,8 @@ from tf import TransformListener
 from motion_pkg.srv import Motion,MotionResponse
 from baseline_navi.srv import StageChange
 from baseline_navi.msg import TaskStage
+from std_msgs.msg import Int32
+
 BB_SIZE = 5
 MAX_DEPTH = 3.0
 BASE_FRAME = "base_link"
@@ -66,10 +68,11 @@ class Motion_(object):
         self._sleep_time = 2
         self._transform_listener = TransformListener()
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
-	rospy.wait_for_service('baseline_navi/stage_request')
+        self.grasp_pub = rospy.Publisher("locobot_motion/grasp_start", Int32, queue_size = 1)
+	    rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
-	self.color = ""
-	self.stage = 0 
+	    self.color = ""
+	    self.stage = 0
     def stage_cb(self, stage_msg):
         tmp = stage_msg.current_stage
         if tmp == 3:
@@ -99,6 +102,12 @@ class Motion_(object):
 
             except rospy.ServiceException, e:
                 print("Service call failed: %s", e)
+        elif tmp == 1:
+            self.robot.camera.set_tilt(self.reset_tilt)
+            while self.robot.camera.get_tilt() < self.reset_tilt:
+                print(self.robot.camera.get_tilt())
+                continue
+            self.grasp_pub.publish(1)
  
     def reset(self):
         """ 
@@ -317,7 +326,7 @@ class Motion_(object):
         self.exit()
 def handle_motion(req):
     rospy.loginfo("Grasp attempt x={:.4f},y={:.4f},theta={:.4f}".format(req.x,req.y,req.theta))
-    self.color = req.color
+    motion.color = req.color
     try:
         success = motion.reset()
         assert  success   
@@ -326,6 +335,7 @@ def handle_motion(req):
     grasp_pose = [req.x,req.y,req.theta]
     #grasp_pose = motion.compute_grasp(display_grasp=False)
     print("\n\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
+    motion.robot.camera.set_tilt(0.0)
     motion.grasp(grasp_pose)
  
     return MotionResponse("ok") 

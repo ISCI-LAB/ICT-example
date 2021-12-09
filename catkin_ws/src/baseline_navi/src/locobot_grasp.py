@@ -19,7 +19,7 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import Quaternion, PointStamped
 from tf import TransformListener
-from std_msgs.msg import Bool
+from std_msgs.msg import Int32
 from baseline_navi.srv import StageChange, StageChangeResponse
 from baseline_navi.msg import TaskStage 
 from baseline_navi.srv import StageChange
@@ -76,10 +76,10 @@ class Grasp_pose(object):
         self.image_rgb = None
         self.image_depth = None
         self.camera_info = None
-        self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size=10)
-        self.image_sub = rospy.Subscriber('camera/color/image_rect_color', Image, self.image_cb, queue_size=10)
-        self.camera_info_sub = rospy.Subscriber('camera/color/camera_info', CameraInfo, self.camera_info_cb, queue_size=10)
-        self.depth_sub = rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_cb, queue_size=10)
+        self.stage_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.stage_cb, queue_size=1)
+        self.image_sub = rospy.Subscriber('camera/color/image_rect_color', Image, self.image_cb, queue_size=1)
+        self.camera_info_sub = rospy.Subscriber('camera/color/camera_info', CameraInfo, self.camera_info_cb, queue_size=1)
+        self.depth_sub = rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_cb, queue_size=1)
         rospy.wait_for_service('locobot_motion')
         self.motion_service = rospy.ServiceProxy('locobot_motion', Motion)
         rospy.wait_for_service('baseline_navi/stage_request')
@@ -94,12 +94,13 @@ class Grasp_pose(object):
             print("Service call failed: %s", e)
 
     def stage_cb(self, stage_msg):
-        if stage_msg.current_stage == 1:
+        if stage_msg.data == 1:
+            time.sleep(5)
             pred_grasp = self.compute_grasp()
             print("Pred grasp: {}".format(pred_grasp))
             try:
                 resp = self.motion_service(pred_grasp[0], pred_grasp[1], pred_grasp[2], self.color)
-                if resp == "ok":
+                if resp.status == "ok":
                     self.stage_srv_call()
             except rospy.ServiceException, e:
                 print("Service call failed: %s", e)
