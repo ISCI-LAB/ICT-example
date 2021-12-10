@@ -5,14 +5,19 @@
 
 BASH_OPTION=bash
 
-IMG=jack6099boy/locobot:GPU
+IMG=iscilab/locobot:GPU
+containerid=$(docker ps -qf "ancestor=${IMG}") && echo $containerid
 
 xhost +
-containerid=$(docker ps -aqf "ancestor=${IMG}") && echo $containerid
-docker exec -it \
-    --privileged \
-    -e DISPLAY=${DISPLAY} \
-    -e LINES="$(tput lines)" \
-    locobot \
-    $BASH_OPTION
-xhost -
+
+if [[ -n "$containerid" ]]
+then
+    docker exec -it \
+        --privileged \
+        -e DISPLAY=${DISPLAY} \
+        -e LINES="$(tput lines)" \
+        locobot \
+        $BASH_OPTION
+else
+    docker start -i locobot
+fi

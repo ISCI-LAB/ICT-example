@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 ARGS=("$@")
+user=$(logname)
 
 # Make sure processes in the container can connect to the x server
 # Necessary so gazebo can create a context for OpenGL rendering (even headless)
-XAUTH=/tmp/.docker.xauth
+XAUTH=~/.Xauthority
 if [ ! -f $XAUTH ]; then
     xauth_list=$(xauth nlist $DISPLAY)
     xauth_list=$(sed -e 's/^..../ffff/' <<<"$xauth_list")
@@ -41,13 +42,14 @@ fi
 
 BASH_OPTION=bash
 
+xhost +
+
 docker run \
     -it \
-    --rm \
     -e DISPLAY=$DISPLAY \
     -e QT_X11_NO_MITSHM=1 \
     -e XAUTHORITY=$XAUTH \
-    -v "/home/popo/ICT-example:/home/isci/ICT-example" \
+    -v "/home/$user/ICT-example:/home/isci/ICT-example" \
     -v "$XAUTH:$XAUTH" \
     -v "/tmp/.X11-unix:/tmp/.X11-unix" \
     -v "/etc/localtime:/etc/localtime:ro" \
@@ -57,5 +59,5 @@ docker run \
     --privileged \
     --security-opt seccomp=unconfined \
     $DOCKER_OPTS \
-    jack6099boy/locobot:GPU \
+    iscilab/locobot:GPU \
     $BASH_OPTION
