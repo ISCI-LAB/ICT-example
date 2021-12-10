@@ -7,3 +7,6 @@
 [submodule "catkin_ws/src/ict_gazebo"]
 	path = catkin_ws/src/ict_gazebo
 	url = https://github.com/ISCI-LAB/ict_gazebo.git
+[submodule "catkin_ws/src/navigation_controller"]
+	path = catkin_ws/src/navigation_controller
+	url = https://github.com/ISCI-LAB/navigation_controller.git
