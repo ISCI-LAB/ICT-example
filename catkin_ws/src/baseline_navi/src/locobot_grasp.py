@@ -95,7 +95,6 @@ class Grasp_pose(object):
 
     def stage_cb(self, stage_msg):
         if stage_msg.data == 1:
-            time.sleep(5)
             pred_grasp = self.compute_grasp()
             print("Pred grasp: {}".format(pred_grasp))
             try:
@@ -107,7 +106,7 @@ class Grasp_pose(object):
 
     def image_cb(self, image_msg):
         try:
-            self.image_rgb = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+            self.image_rgb = self.bridge.imgmsg_to_cv2(image_msg, "rgb8")
         except CvBridgeError, e:
             print(e)
 
