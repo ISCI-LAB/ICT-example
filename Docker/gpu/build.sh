@@ -1,2 +1,2 @@
 #!/bin/sh
-docker build --rm -t jack6099boy/locobot:GPU .
+docker build --rm -t iscilab/locobot:GPU .

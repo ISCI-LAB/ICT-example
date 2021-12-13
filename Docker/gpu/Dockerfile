@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04
+FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -22,7 +22,7 @@ RUN adduser --disabled-password \
     ${USER} 
 
 RUN echo "root:root" | chpasswd
-RUN echo "${USER}:111111" | chpasswd
+RUN echo "${USER}:iscilab" | chpasswd
 
 ###################################### basic tools #####################################
 
@@ -42,19 +42,7 @@ RUN apt-get update && apt-get install -y \
     libaudit-dev \
     tzdata \
     python-pip \
-    python3-pip \
-    python3-catkin-tools
-
-#################################### GTSAM ####################################
-
-RUN cd ${HOME}/ \
-    && git clone https://github.com/borglab/gtsam.git \
-    && cd gtsam/ \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    && make -j10 \
-    && make install
+    python3-pip
 
 
 ############################# LoCoBot and PyRobot ############################
@@ -87,7 +75,7 @@ RUN pip3 install empy \
     wget 
 
 RUN python3 -m pip install \
-    torch==1.7.0 torchvision==0.8.1 torchaudio==0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
+    torch==1.2.0 torchvision==0.4.0 torchaudio==0.3.0 -f https://download.pytorch.org/whl/cu100/torch_stable.html
 
 
 ############################# custom gazebo ###############################
@@ -99,15 +87,11 @@ RUN mkdir -p $HOME/.gazebo \
     && cd
 
 
-RUN python -m pip install future
-RUN python -m pip install open3d
-RUN apt install -y ros-melodic-ros-numpy
+RUN python -m pip install future open3d IPython python-gflags
+RUN apt install -y ros-melodic-ros-numpy python-catkin-tools
 RUN python -m pip install pyrsistent==0.13 open3d_ros_helper
+RUN python -m pip install install torch==0.3.1 torchvision==0.2.1 -f https://download.pytorch.org/whl/cu100/torch_stable.html
 
-RUN python -m pip install install torch torchvision 
-RUN python -c "import torchvision; torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)"
-
-RUN python3 -m pip install gshell
 ##################################### setting #####################################
 RUN chown -R ${USER}:${USER} ${HOME}/
 RUN echo "${USER} ALL=(ALL) ALL" > /etc/sudoers
@@ -127,7 +111,5 @@ ENTRYPOINT ["/ros_entrypoint.sh"]
 
 USER ${USER}
 WORKDIR ${HOME}
-RUN gdown https://drive.google.com/uc?id=1dEzygT9CTtQDZU2xgjWO4qvVjyG2-kjj
-
 
 RUN ls
