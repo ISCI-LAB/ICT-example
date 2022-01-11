@@ -76,7 +76,7 @@ class Grasp_pose(object):
         self.image_rgb = None
         self.image_depth = None
         self.camera_info = None
-        self.stage_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.stage_cb, queue_size=1)
+        self.start_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.start_cb, queue_size=1)
         self.image_sub = rospy.Subscriber('camera/color/image_rect_color', Image, self.image_cb, queue_size=1)
         self.camera_info_sub = rospy.Subscriber('camera/color/camera_info', CameraInfo, self.camera_info_cb, queue_size=1)
         self.depth_sub = rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_cb, queue_size=1)
@@ -85,22 +85,12 @@ class Grasp_pose(object):
         rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
 
-    def stage_srv_call(self):
-        try:
-            resp = self.stage_service(2, "locobot_grasp")
-            if resp.success :
-                print("success change stage to 2")
-        except rospy.ServiceException, e:
-            print("Service call failed: %s", e)
-
-    def stage_cb(self, stage_msg):
-        if stage_msg.data == 1:
+    def start_cb(self, start_msg):
+        if start_msg.data == 1:
             pred_grasp = self.compute_grasp()
             print("Pred grasp: {}".format(pred_grasp))
             try:
                 resp = self.motion_service(pred_grasp[0], pred_grasp[1], pred_grasp[2], self.color)
-                if resp.status == "ok":
-                    self.stage_srv_call()
             except rospy.ServiceException, e:
                 print("Service call failed: %s", e)
 

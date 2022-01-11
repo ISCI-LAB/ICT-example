@@ -24,7 +24,8 @@ from tf import TransformListener
 from motion_pkg.srv import Motion,MotionResponse
 from baseline_navi.srv import StageChange
 from baseline_navi.msg import TaskStage
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Bool
+from navigation_controller.srv import command
 
 BB_SIZE = 5
 MAX_DEPTH = 3.0
@@ -58,49 +59,52 @@ class Motion_(object):
         self.n_tries = 5
         self._sleep_time = 2
         self._transform_listener = TransformListener()
-        self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
         self.motion_srv = rospy.Service('locobot_motion', Motion, self.handle_motion)
         self.grasp_pub = rospy.Publisher("locobot_motion/grasp_start", Int32, queue_size = 1)
-        rospy.wait_for_service('baseline_navi/stage_request')
-        self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
+        self.stage_sub = rospy.Subscriber('locobot_motion/demo_initial', Bool, self.demo_cb, queue_size = 1)
+        rospy.wait_for_service('pos_cmd')
+        self.goal_service = rospy.ServiceProxy('pos_cmd', command)
         self.color = ""
-        self.stage = 0
-    def stage_cb(self, stage_msg):
-        tmp = stage_msg.current_stage
-        if tmp == 3:
-            self.adjust_counter = 0
-            rospy.loginfo('Going to placing pose')
-            if self.color == 'red':
-                result = self.set_pose([0.234, -0.335, 0.3], roll=0.0)
-            elif self.color == 'green':
-                result = self.set_pose([0.14, -0.335, 0.3], roll=0.0)
-            elif self.color == 'blue':
-                result = self.set_pose([0.024, -0.335, 0.3], roll=0.0)
-            if not result:
-                return False
-            time.sleep(self._sleep_time)
 
-            rospy.loginfo('Opening gripper')
-            self.robot.gripper.open()
-            rospy.loginfo('Going to placing above pose')
-            result = self.set_pose([0.124, -0.335, 0.25], roll=0.0)
-            if not result:
-                return False
+    def loop_service_confirm(self):
+        goal_achived = False
+        while not goal_achived:
             try:
-                resp = self.stage_service(4, "grasp_end")
-                if resp.success :
-                    print("success change stage to 4")
-                    self.stage = 0
-
+                resp = self.goal_service(0, 0, 0, 0)
+                goal_achived = resp.run_completed
             except rospy.ServiceException, e:
                 print("Service call failed: %s", e)
-        elif tmp == 1:
-            self.robot.camera.set_tilt(self.reset_tilt)
-            while self.robot.camera.get_tilt() < self.reset_tilt:
-                print(self.robot.camera.get_tilt())
-                continue
-            self.grasp_pub.publish(1)
- 
+
+        return goal_achived
+
+    def pos_cmd_request(self, request_type, request_x, request_y, request_theta):
+        try:
+            resp = self.goal_service(request_type, request_x, request_y, request_theta)
+        except rospy.ServiceException, e:
+            print("Service call failed: %s", e)
+
+    def send_goal(self, goal_x, goal_y, goal_theta):
+        self.pos_cmd_request(2, goal_x, goal_y, 0)
+        goal_achived = self.loop_service_confirm()
+
+        if not goal_achived:
+            print("Fail at type 2 VSLAM Navigation")
+            return False
+
+        self.pos_cmd_request(1, 0, 0, goal_theta)
+        goal_achive = self.loop_service_confirm()
+
+        return goal_achived
+
+    def demo_cb(self, demo_msg):
+        if demo_msg.data == False:
+            return
+
+        #start demo grasping
+        self.send_goal(1.1, 0.45, 1.57)
+        self.robot.camera.set_tilt(self.reset_tilt)
+        self.grasp_pub.publish(1)
+
     def reset(self):
         """ 
         Resets the arm to it's retract position.
@@ -226,6 +230,29 @@ class Motion_(object):
         print("\n\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
         self.robot.camera.set_tilt(0.0)
         self.grasp(grasp_pose)
+
+        #robotics arm placing
+        rospy.loginfo('Going to placing pose')
+        if self.color == 'red':
+            result = self.set_pose([0.234, -0.335, 0.3], roll=0.0)
+        elif self.color == 'green':
+            result = self.set_pose([0.14, -0.335, 0.3], roll=0.0)
+        elif self.color == 'blue':
+            result = self.set_pose([0.024, -0.335, 0.3], roll=0.0)
+        if not result:
+            return False
+        time.sleep(self._sleep_time)
+        rospy.loginfo('Opening gripper')
+        self.robot.gripper.open()
+        rospy.loginfo('Going to placing above pose')
+        result = self.set_pose([0.124, -0.335, 0.25], roll=0.0)
+        if not result:
+            return False
+        self.set_pose([0.15,0.0,0.3],roll=0.0)
+        self.pos_cmd_request(1, 0, 0, 3.14)
+        goal_achived = self.loop_service_confirm()
+        self.send_goal(0, 0, 0)
+        self.reset()
 
         return MotionResponse("ok")
 
