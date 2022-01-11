@@ -59,6 +59,7 @@ class Motion_(object):
         self._sleep_time = 2
         self._transform_listener = TransformListener()
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
+        self.motion_srv = rospy.Service('locobot_motion', Motion, self.handle_motion)
         self.grasp_pub = rospy.Publisher("locobot_motion/grasp_start", Int32, queue_size = 1)
         rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
@@ -115,105 +116,6 @@ class Motion_(object):
         self.robot.camera.set_pan(self.reset_pan)
         self.robot.camera.set_tilt(self.reset_tilt)
         return success
-
-    def _process_depth(self, cur_depth=None):
-        if cur_depth is None:
-            cur_depth = self.robot.camera.get_depth()
-        cur_depth = cur_depth / 1000.0  # conversion from mm to m
-        cur_depth[cur_depth > MAX_DEPTH] = 0.0
-        return cur_depth
-
-    def _get_z_mean(self, depth, pt, bb=BB_SIZE):
-        sum_z = 0.0
-        nps = 0
-        for i in range(bb * 2):
-            for j in range(bb * 2):
-                new_pt = [pt[0] - bb + i, pt[1] - bb + j]
-                try:
-                    new_z = depth[int(new_pt[0]), int(new_pt[1])]
-                    if new_z > MIN_DEPTH:
-                        sum_z += new_z
-                        nps += 1
-                except:
-                    pass
-        if nps == 0.0:
-            return 0.0
-        else:
-            return sum_z / nps
-
-    def _get_3D_camera(self, pt, norm_z=None):
-        assert len(pt) == 2
-        cur_depth = self._process_depth()
-        z = self._get_z_mean(cur_depth, [pt[0], pt[1]])
-        rospy.loginfo("depth of point is : {}".format(z))
-        if z == 0.0:
-            raise RuntimeError
-        if norm_z is not None:
-            z = z / norm_z
-        u = pt[1]
-        v = pt[0]
-        P = copy.deepcopy(self.robot.camera.camera_P)
-        rospy.loginfo("P is: {}".format(P))
-        P_n = np.zeros((3, 3))
-        P_n[:, :2] = P[:, :2]
-        P_n[:, 2] = P[:, 3] + P[:, 2] * z
-        P_n_inv = np.linalg.inv(P_n)
-        temp_p = np.dot(P_n_inv, np.array([u, v, 1]))
-        temp_p = temp_p / temp_p[-1]
-        temp_p[-1] = z
-        return temp_p
-
-    def _convert_frames(self, pt):
-        assert len(pt) == 3
-        rospy.loginfo("Point to convert: {}".format(pt))
-        ps = PointStamped()
-        ps.header.frame_id = KINECT_FRAME
-        ps.point.x, ps.point.y, ps.point.z = pt
-        base_ps = self._transform_listener.transformPoint(BASE_FRAME, ps)
-        rospy.loginfo(
-            "transform : {}".format(
-                self._transform_listener.lookupTransform(
-                    BASE_FRAME, KINECT_FRAME, rospy.Time(0)
-                )
-            )
-        )
-        base_pt = np.array([base_ps.point.x, base_ps.point.y, base_ps.point.z])
-        rospy.loginfo("Base point to convert: {}".format(base_pt))
-        return base_pt
-
-    def get_3D(self, pt, z_norm=None):
-        temp_p = self._get_3D_camera(pt, z_norm)
-        rospy.loginfo("temp_p: {}".format(temp_p))
-        base_pt = self._convert_frames(temp_p)
-        return base_pt
-
-    def compute_grasp(self, dims=[(240, 480), (100, 540)], display_grasp=False):
-        """ 
-        Runs the grasp model to generate the best predicted grasp.
-        
-        :param dims: List of tuples of min and max indices of the image axis.
-        :param display_grasp: Displays image of the grasp.
-        :type dims: list
-        :type display_grasp: bool
-        :returns: Grasp configuration
-        :rtype: list
-        """
-
-        img = self.robot.camera.get_rgb()
-        img = img[dims[0][0] : dims[0][1], dims[1][0] : dims[1][1]]
-        # selected_grasp = [183, 221, -1.5707963267948966, 1.0422693]
-        selected_grasp = list(self.grasp_model.predict(img))
-        rospy.loginfo("Pixel grasp: {}".format(selected_grasp))
-        img_grasp = copy.deepcopy(selected_grasp)
-        selected_grasp[0] += dims[0][0]
-        selected_grasp[1] += dims[1][0]
-        selected_grasp[:2] = self.get_3D(selected_grasp[:2])[:2]
-        selected_grasp[2] = selected_grasp[2]
-        if display_grasp:
-            self.grasp_model.display_predicted_image()
-            # im_name = '{}.png'.format(time.time())
-            # cv2.imwrite('~/Desktop/grasp_images/{}'.format(im_name), self.grasp_model._disp_I)
-        return selected_grasp
 
     def grasp(self, grasp_pose):
         """ 
@@ -310,31 +212,25 @@ class Motion_(object):
         Signal handling function.
         """
         self.exit()
-def handle_motion(req):
-    rospy.loginfo("Grasp attempt x={:.4f},y={:.4f},theta={:.4f}".format(req.x,req.y,req.theta))
-    motion.color = req.color
-    try:
-        success = motion.reset()
-        assert  success   
-    except:    
-        rospy.logerr("Arm reset failed")
-    grasp_pose = [req.x,req.y,req.theta]
-    #grasp_pose = motion.compute_grasp(display_grasp=False)
-    print("\n\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
-    motion.robot.camera.set_tilt(0.0)
-    motion.grasp(grasp_pose)
+
+    def handle_motion(self, req):
+        rospy.loginfo("Grasp attempt x={:.4f},y={:.4f},theta={:.4f}".format(req.x,req.y,req.theta))
+        self.color = req.color
+        try:
+            success = self.reset()
+            assert  success
+        except:
+            rospy.logerr("Arm reset failed")
+        grasp_pose = [req.x,req.y,req.theta]
+        #grasp_pose = motion.compute_grasp(display_grasp=False)
+        print("\n\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
+        self.robot.camera.set_tilt(0.0)
+        self.grasp(grasp_pose)
+
+        return MotionResponse("ok")
+
  
-    return MotionResponse("ok") 
- 
-def locobot_motion_server():
-    #rospy.init_node('locobot_motion_server')
-    s = rospy.Service('locobot_motion', Motion, handle_motion)
-    print("Ready to add locobot motion server")
-    rospy.spin()
- 
-    
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(description="Process args for grasper")
     parser.add_argument('--n_grasps', help='Number of grasps for inference', type=int, default=5)
     parser.add_argument('--n_samples', help='Number of samples for a single grasp inference', type=int, default=N_SAMPLES)
@@ -344,6 +240,7 @@ if __name__ == "__main__":
     parser.set_defaults(no_visualize=True)
 
     args = parser.parse_args()
+    rospy.init_node('locobot_motion_server')
     motion = Motion_()
     motion.reset()
-    locobot_motion_server()
+    rospy.spin()
