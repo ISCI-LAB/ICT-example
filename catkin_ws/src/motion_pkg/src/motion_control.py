@@ -36,12 +36,6 @@ N_SAMPLES = 100
 PATCH_SIZE = 100
 
 from IPython import embed
-#from pyrobot.utils.util import try_cv2_import
-
-#cv2 = try_cv2_import()
-
-# DEFAULT_PITCH_EPSILON = 0.02
-
 
 class Motion_(object):
     """
@@ -54,9 +48,6 @@ class Motion_(object):
             "locobot_kobuki",
             arm_config={"use_moveit": True, "moveit_planner": "ESTkConfigDefault"},
         )
-      #  self.grasp_model = GraspModel(
-      #      model_name=model_name, url=url, nsamples=n_samples, patchsize=patch_size
-      #  )
         self.pregrasp_height = 0.2
         self.grasp_height = 0.13
         self.default_Q = Quaternion(0.0, 0.0, 0.0, 1.0)
@@ -69,15 +60,15 @@ class Motion_(object):
         self._transform_listener = TransformListener()
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
         self.grasp_pub = rospy.Publisher("locobot_motion/grasp_start", Int32, queue_size = 1)
-	rospy.wait_for_service('baseline_navi/stage_request')
+        rospy.wait_for_service('baseline_navi/stage_request')
         self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
-	self.color = ""
-	self.stage = 0
+        self.color = ""
+        self.stage = 0
     def stage_cb(self, stage_msg):
         tmp = stage_msg.current_stage
         if tmp == 3:
             self.adjust_counter = 0
-	    rospy.loginfo('Going to placing pose')
+            rospy.loginfo('Going to placing pose')
             if self.color == 'red':
                 result = self.set_pose([0.234, -0.335, 0.3], roll=0.0)
             elif self.color == 'green':
@@ -85,16 +76,16 @@ class Motion_(object):
             elif self.color == 'blue':
                 result = self.set_pose([0.024, -0.335, 0.3], roll=0.0)
             if not result:
-            	return False
+                return False
             time.sleep(self._sleep_time)
-    
-	    rospy.loginfo('Opening gripper')
+
+            rospy.loginfo('Opening gripper')
             self.robot.gripper.open()
-	    rospy.loginfo('Going to placing above pose')
+            rospy.loginfo('Going to placing above pose')
             result = self.set_pose([0.124, -0.335, 0.25], roll=0.0)
-	    if not result:
-		return False
-	    try:
+            if not result:
+                return False
+            try:
                 resp = self.stage_service(4, "grasp_end")
                 if resp.success :
                     print("success change stage to 4")
@@ -262,11 +253,6 @@ class Motion_(object):
             return False
         time.sleep(self._sleep_time)
 
-       # rospy.loginfo("Opening gripper")
-       # self.robot.gripper.open()
-        #return True
-        #time.sleep(self._sleep_time)
-
     def set_pose(self, position, pitch=DEFAULT_PITCH, roll=0.0):
         """ 
         Sets desired end-effector pose.
@@ -342,7 +328,6 @@ def handle_motion(req):
  
 def locobot_motion_server():
     #rospy.init_node('locobot_motion_server')
-    #motion = Motion_()
     s = rospy.Service('locobot_motion', Motion, handle_motion)
     print("Ready to add locobot motion server")
     rospy.spin()
