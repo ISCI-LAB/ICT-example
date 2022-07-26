@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -42,11 +42,15 @@ RUN apt-get update && apt-get install -y \
     libaudit-dev \
     tzdata \
     python-pip \
-    python3-pip
+    python3-pip \
+    wget
 
 
 ############################# LoCoBot and PyRobot ############################
-RUN python -m pip install -U pip setuptools
+RUN sudo wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
+RUN sudo python get-pip.py
+RUN python -m pip install -U setuptools
+
 
 RUN cd ${HOME}/
 
@@ -55,6 +59,14 @@ RUN curl 'https://raw.githubusercontent.com/jack6099boy/pyrobot/master/robots/Lo
 RUN ./locobot_install_all.sh -t sim_only -p 2 -l interbotix
 
 RUN rm locobot_install_all.sh
+
+# install ros-melodic
+RUN sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' 
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+RUN sudo apt-get update
+RUN sudo apt-get install ros-melodic-desktop -y
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+# RUN source ~/.bashrc
 
 RUN apt-get update && apt-get install -y \
     ros-melodic-smach \
@@ -65,17 +77,20 @@ RUN apt-get update && apt-get install -y \
 
 
 ##################################### Pytorch ######################################
-RUN python3 -m pip install -U pip 
+RUN python3 -m pip install -U pip
+RUN sudo wget https://bootstrap.pypa.io/pip/3.5/get-pip.py
+RUN sudo python3 get-pip.py
+
 
 RUN pip3 install empy \
     catkin-tools \
     opencv-python \ 
     rospkg \
-    matplotlib \
-    wget 
+    matplotlib 
 
-RUN python3 -m pip install \
-    torch==1.2.0 torchvision==0.4.0 torchaudio==0.3.0 -f https://download.pytorch.org/whl/cu100/torch_stable.html
+
+# RUN python3 -m pip install \
+#     torch==1.2.0 torchvision==0.4.0 torchaudio==0.3.0 -f https://download.pytorch.org/whl/cu102/torch_stable.html
 
 
 ############################# custom gazebo ###############################
@@ -88,9 +103,11 @@ RUN mkdir -p $HOME/.gazebo \
 
 
 RUN python -m pip install future open3d IPython python-gflags
-RUN apt install -y ros-melodic-ros-numpy python-catkin-tools
+# RUN apt install -y ros-melodic-ros-numpy python-catkin-tools
 RUN python -m pip install pyrsistent==0.13 open3d_ros_helper
-RUN python -m pip install install torch==0.3.1 torchvision==0.2.1 -f https://download.pytorch.org/whl/cu100/torch_stable.html
+#install torch, torchvision and gdown
+RUN pip install torch torchvision gdown
+# RUN python -m pip install torch==1.10.1 torchvision==0.11.2 -f https://download.pytorch.org/whl/cu102/torch_stable.html
 
 ##################################### setting #####################################
 RUN chown -R ${USER}:${USER} ${HOME}/
@@ -105,9 +122,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=all
 
 # setup entrypoint
-COPY ./ros_entrypoint.sh /
+# COPY ./ros_entrypoint.sh /
 
-ENTRYPOINT ["/ros_entrypoint.sh"]
+# ENTRYPOINT ["/ros_entrypoint.sh"]
 
 USER ${USER}
 WORKDIR ${HOME}
