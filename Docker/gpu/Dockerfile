@@ -107,6 +107,7 @@ RUN python -m pip install future open3d IPython python-gflags
 RUN python -m pip install pyrsistent==0.13 open3d_ros_helper
 #install torch, torchvision and gdown
 RUN pip install torch torchvision gdown
+RUN pip install notebook
 # RUN python -m pip install torch==1.10.1 torchvision==0.11.2 -f https://download.pytorch.org/whl/cu102/torch_stable.html
 
 ##################################### setting #####################################
@@ -122,9 +123,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=all
 
 # setup entrypoint
-# COPY ./ros_entrypoint.sh /
+COPY ./ros_entrypoint.sh /
 
-# ENTRYPOINT ["/ros_entrypoint.sh"]
+ENTRYPOINT ["/ros_entrypoint.sh"]
 
 USER ${USER}
 WORKDIR ${HOME}
