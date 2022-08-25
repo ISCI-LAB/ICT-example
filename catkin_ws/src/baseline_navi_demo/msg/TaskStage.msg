@@ -1,0 +1,3 @@
+uint32 current_stage
+
+string task_state

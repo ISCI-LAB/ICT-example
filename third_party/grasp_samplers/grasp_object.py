@@ -13,6 +13,7 @@ import sys
 
 import numpy as np
 import torch
+import torch.nn as nn
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
@@ -40,8 +41,22 @@ class GraspTorchObj(object):
             :type model_path: string
             :type transform: A torchvision.Transform object
             """
+        # torch.nn.Module.dump_patches = True
+        # self.model = torch.load(model_path).eval()
+        # self.image_size = 224
+        # if is_gpu:
+        #     self.model = self.model.cuda()
+        # if transform is None:
+        #     self.transform = self.get_default_transform()
+        # else:
+        #     self.transform = transform
         torch.nn.Module.dump_patches = True
-        self.model = torch.load(model_path).eval()
+        check_point = torch.load(model_path)
+        self.model = check_point
+        for i, (name, module) in enumerate(self.model._modules.items()):
+            module = self.recursion_change_bn(self.model)
+        self.model.eval()
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.image_size = 224
         if is_gpu:
             self.model = self.model.cuda()
@@ -49,6 +64,7 @@ class GraspTorchObj(object):
             self.transform = self.get_default_transform()
         else:
             self.transform = transform
+
 
     def test_one_batch(self, x, h, w,
                        angle_labels, robot_labels,
@@ -174,3 +190,11 @@ class GraspTorchObj(object):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         return image_transforms
+
+    def recursion_change_bn(self, module):
+        if isinstance(module, torch.nn.BatchNorm2d):
+            module.track_running_stats = 1
+        else:
+            for i, (name, module1) in enumerate(module._modules.items()):
+                module1 = self.recursion_change_bn(module1)
+        return module

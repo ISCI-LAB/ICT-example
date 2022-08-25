@@ -1,0 +1,4 @@
+uint32 desired_stage
+string request_node
+---
+bool success

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <node pkg="baseline_navi_demo" type="locobot_grasp.py" name="locobot_grasp" output="screen"/>
+</launch>

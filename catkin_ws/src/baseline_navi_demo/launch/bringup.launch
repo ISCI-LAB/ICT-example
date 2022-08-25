@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+    <node pkg="baseline_navi_demo" type="stage_switch.py" name="stage_switch"  output="screen" />
+    <node pkg="baseline_navi_demo" type="apriltags_to_goalpoint.py" name="apriltags_to_goalpoint"  output="screen" />
+    <include file="$(find apriltag_ros)/launch/continuous_detection.launch" />
+</launch>
