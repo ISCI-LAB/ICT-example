@@ -1,0 +1,13 @@
+<launch>
+  <arg name="--n_grasps" default="5"/>
+  <arg name="--n_samples" default="100"/>
+  <arg name="--patch_size" default="100"/>
+  <arg name="--no_visualize" default="True"/>
+
+  <node name="motion_pkg" pkg="motion_pkg" type="motion_control.py" output="screen">
+    <param name="--n_grasps" value="$(arg --n_grasps)" />
+    <param name="--n_samples" value="$(arg --n_samples)" />
+    <param name="--patch_size" value="$(arg --patch_size)" />
+    <param name="--no_visualize" value="$(arg --no_visualize)" />
+  </node>
+</launch>
