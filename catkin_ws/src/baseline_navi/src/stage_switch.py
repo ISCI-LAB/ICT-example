@@ -2,21 +2,34 @@
 
 import rospy
 from baseline_navi.srv import StageChange, StageChangeResponse
+from baseline_navi.srv import Stage_Grasp, Stage_GraspResponse
+from baseline_navi.srv import Stage_Totag, Stage_TotagResponse
 from navigation_controller.srv import command
 from baseline_navi.msg import TaskStage
 from geometry_msgs.msg import PoseStamped
 import tf2_ros
 import tf2_geometry_msgs
+from std_msgs.msg import Int32
 
 class StageSwitch(object):
     def __init__(self):
         self.stage = 0
-        self.stage_srv = rospy.Service('baseline_navi/stage_request', StageChange, self.stage_service_callback)
+        self.start_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.start_cb, queue_size=1)
         self.stage_pub = rospy.Publisher("baseline_navi/current_stage", TaskStage, queue_size = 1)
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1200.0))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         rospy.wait_for_service('pos_cmd')
         self.goal_service = rospy.ServiceProxy('pos_cmd', command)
+        rospy.wait_for_service('baseline_navi/stage_grasp')
+        self.grasp_service = rospy.ServiceProxy('baseline_navi/stage_grasp', Stage_Grasp)
+        rospy.wait_for_service('baseline_navi/stage_totag')
+        self.totag_service = rospy.ServiceProxy('baseline_navi/stage_totag', Stage_Totag)
+    
+    def start_cb(self, start_msg):
+        if start_msg.data == 1:
+            self.grasp_service(1)
+            self.totag_service(True)
+            self.grasp_service(3)
 
     def loop_service_confirm(self):
         goal_achived = False
@@ -48,43 +61,7 @@ class StageSwitch(object):
 
         return goal_achived
 
-    def stage_service_callback(self, request):
-        print("Current stage: {}, {} request for switching task stage to {}.".format(self.stage, request.request_node, request.desired_stage))
-
-        self.stage = request.desired_stage
-
-        if self.stage == 2:
-            self.pos_cmd_request(1, 0, 0, 2.0)
-            self.loop_service_confirm()
-
-        self.stage_publish()
-
-        if self.stage == 4:
-            self.pos_cmd_request(1, 0, 0, -2.0)
-            self.loop_service_confirm()
-            self.send_goal(0, 0, 0)
-            self.stage = 1
-            self.stage_publish()
-            print("Current stage: 4, switch task stage to 1 for initialization.")
-
-        return StageChangeResponse(True)
-
-    def stage_publish(self):
-        stage_msg = TaskStage()
-        stage_msg.current_stage = self.stage
-
-        if self.stage == 0:
-            stage_msg.task_state = "stop"
-        elif self.stage == 1:
-            stage_msg.task_state = "grasping"
-        elif self.stage == 2:
-            stage_msg.task_state = "apriltag_navigating"
-        elif self.stage == 3:
-            stage_msg.task_state = "placing"
-        elif self.stage == 4:
-            stage_msg.task_state = "init_position"
-
-        self.stage_pub.publish(stage_msg)
+    
 
 if __name__ == "__main__":
     rospy.init_node('stage_switch')

@@ -1,6 +1,0 @@
-<launch>
-    <include file="$(find baseline_navi_demo)/launch/locobot_grasp.launch"/>
-    <include file="$(find motion_pkg_demo)/launch/motion_pkg_demo.launch"/>
-    <include file="$(find navigation_controller)/launch/navigation.launch"/>
-    
-</launch>
