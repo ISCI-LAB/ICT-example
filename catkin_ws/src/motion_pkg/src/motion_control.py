@@ -18,14 +18,15 @@ import time
 
 import numpy as np
 import rospy
-from geometry_msgs.msg import Quaternion, PointStamped
+import actionlib
+from geometry_msgs.msg import Quaternion, PointStamped, PoseStamped
 from pyrobot import Robot
-from tf import TransformListener
+from tf import TransformListener, transformations
 from motion_pkg.srv import Motion,MotionResponse
 from motion_pkg.srv import Grasp_Point, Grasp_PointResponse
 from baseline_navi.srv import StageChange
 from baseline_navi.srv import Stage_Grasp, Stage_GraspResponse
-
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from baseline_navi.msg import TaskStage
 from std_msgs.msg import Int32, Bool
 from navigation_controller.srv import command
@@ -66,11 +67,16 @@ class Motion_(object):
         self.n_tries = 5
         self._sleep_time = 2.5
         self._transform_listener = TransformListener()
+        self.goal = MoveBaseGoal()
         rospy.wait_for_service('locobot_grasppoint')
         self.grasppoint_service = rospy.ServiceProxy('locobot_grasppoint', Grasp_Point)
         self.grasp_stage_srv = rospy.Service('baseline_navi/stage_grasp', Stage_Grasp, self.grasp_stage_service_cb)
         rospy.wait_for_service('pos_cmd')
         self.goal_service = rospy.ServiceProxy('pos_cmd', command)
+        self.client = actionlib.SimpleActionClient(
+            "navigation_controller/send_goal",
+            MoveBaseAction)
+        self.client.wait_for_server()
         self.color = ""
 
     def loop_service_confirm(self):
@@ -150,7 +156,6 @@ class Motion_(object):
         if not result:
             return False
         time.sleep(1)
-        print("end of grasp func")
 
     def set_pose(self, position, pitch=DEFAULT_PITCH, roll=0.0):
         """ 
@@ -244,15 +249,36 @@ class Motion_(object):
 
         return MotionResponse("ok")
 
+    def set_goal(self, translation, rotation):
+        self.goal.target_pose.pose.position.x = translation[0]
+        self.goal.target_pose.pose.position.y = translation[1]
+        self.goal.target_pose.pose.position.z = translation[2]
+        (x, y, z, w) = transformations.quaternion_from_euler(rotation[0], rotation[1], rotation[2])
+        self.goal.target_pose.pose.orientation.x = x
+        self.goal.target_pose.pose.orientation.y = y
+        self.goal.target_pose.pose.orientation.z = z
+        self.goal.target_pose.pose.orientation.w = w
+
     def grasp_stage_service_cb(self, grasp_request):
         if grasp_request.request == 1:
             self.reset()
-            self.send_goal(0, 0, -1.57)
+            #new way to send goal
+            self.set_goal([0, 0, 0],[0, 0, -1.57])
+            self.client.send_goal(self.goal)
+            print("wait for result")
+            self.client.wait_for_result()
+            print("goal reach success")
+            # self.send_goal(0, 0, -1.57)
             print("call grasp.py")
             response = self.grasppoint_service(True)
-            print("get point")
             self.handle_grasp(response)
-            self.send_goal(0, 0, 0)
+            #new way to send goal
+            self.set_goal([0, 0, 0],[0, 0, 0])
+            self.client.send_goal(self.goal)
+            print("wait for result")
+            self.client.wait_for_result()
+            print("goal reach success")
+            # self.send_goal(0, 0, 0)
             return Stage_GraspResponse(True)
         elif grasp_request.request == 3:
             rospy.loginfo('Opening gripper')
@@ -260,7 +286,17 @@ class Motion_(object):
             rospy.loginfo('Going to placing above pose')
             self.set_pose([0.15,0.0,0.3],roll=0.0)
             rospy.loginfo('back to original point')
-            self.send_goal(0, 0, 0)
+            #new way to send goal
+            goal = MoveBaseGoal()
+            goal.target_pose.pose.position.x = 0.
+            goal.target_pose.pose.position.y = 0.
+            goal.target_pose.pose.position.z = 0.
+            goal.target_pose.pose.orientation.x = 0.
+            goal.target_pose.pose.orientation.y = 0.
+            goal.target_pose.pose.orientation.z = 0.
+            goal.target_pose.pose.orientation.w = 1
+            self.client.send_goal(goal)
+            # self.send_goal(0, 0, 0)
             return Stage_GraspResponse(True)
  
 if __name__ == "__main__":

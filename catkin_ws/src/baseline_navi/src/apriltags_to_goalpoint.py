@@ -10,6 +10,8 @@ from baseline_navi.msg import TaskStage
 from navigation_controller.srv import command
 from baseline_navi.srv import StageChange
 from baseline_navi.srv import Stage_Totag, Stage_TotagResponse
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+import actionlib
 import time
 import math
 
@@ -24,14 +26,17 @@ class ApriltagsToGoalPoint(object):
         self.stage = 0
         self.adjust_counter = 0
         self.last_msg = 0
+        self.goal = MoveBaseGoal()
         # Setup the publisher and subscriber
         self.sub_tag = rospy.Subscriber("tag_detections", AprilTagDetectionArray, self.tagCallback)
         self.stage_sub = rospy.Subscriber('baseline_navi/current_stage', TaskStage, self.stage_cb, queue_size = 1)
         self.motion_stage_srv = rospy.Service('baseline_navi/stage_totag', Stage_Totag, self.totag_stage_service_cb)
-        # rospy.wait_for_service('baseline_navi/stage_request')
-        # self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
         rospy.wait_for_service('pos_cmd')
         self.goal_service = rospy.ServiceProxy('pos_cmd', command)
+        self.client = actionlib.SimpleActionClient(
+            "navigation_controller/send_goal",
+            MoveBaseAction)
+        self.client.wait_for_server()
 
     def totag_stage_service_cb(self, totag_request):
         self.stage = 1
@@ -76,6 +81,18 @@ class ApriltagsToGoalPoint(object):
 
         return goal_achived
 
+    def set_goal(self, translation, rotation, weight):
+        self.goal.target_pose.pose.position.x = translation.x * weight
+        self.goal.target_pose.pose.position.y = translation.y * weight
+        self.goal.target_pose.pose.position.z = translation.z * weight
+        self.goal.target_pose.pose.orientation.x = rotation.x
+        self.goal.target_pose.pose.orientation.y = rotation.y
+        self.goal.target_pose.pose.orientation.z = rotation.z
+        self.goal.target_pose.pose.orientation.w = rotation.w
+
+
+
+
     def tagCallback(self, msg_tags):
         if self.stage == 1 :
             goal_pose = PoseStamped()
@@ -98,7 +115,10 @@ class ApriltagsToGoalPoint(object):
                     (r, p, y) = tf.transformations.euler_from_quaternion([
                                     transform_goal.transform.rotation.x, transform_goal.transform.rotation.y,
                                     transform_goal.transform.rotation.z, transform_goal.transform.rotation.w])
-                    
+                    #list for goal's x y z and quaternion
+                    goal_list = []
+                    print("type of transform_goal.transform.rotation")
+                    print(type(transform_goal.transform.rotation))
                     if self.last_msg == 0:
                         self.last_msg = transform_goal.transform.translation.x
 
@@ -116,16 +136,29 @@ class ApriltagsToGoalPoint(object):
                         print(transform_goal.transform.translation.y)
                         goal_weight = (self.adjust_counter + 2) * 0.25
                         print(goal_weight)
-                        goal_achived = self.send_goal(transform_goal.transform.translation.x * goal_weight,
-                            transform_goal.transform.translation.y * goal_weight, y)
+                        #new way to send goal
+                        self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, goal_weight)
+                        self.client.send_goal(self.goal)
+                        print("wait for result")
+                        self.client.wait_for_result()
+                        print("goal reach success")
+                        # goal_achived = self.send_goal(transform_goal.transform.translation.x * goal_weight,
+                        #     transform_goal.transform.translation.y * goal_weight, y)
                     else:
-                        goal_achived = self.send_goal(transform_goal.transform.translation.x, transform_goal.transform.translation.y, y)
-                        print("start turn around")
+                        #new way to send goal
+                        self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, 1)
+                        self.client.send_goal(self.goal)
+                        print("wait for result")
+                        self.client.wait_for_result()
+                        print("goal reach success")
+                        # goal_achived = self.send_goal(transform_goal.transform.translation.x, transform_goal.transform.translation.y, y)
                         self.stage = 0
 
-                    if goal_achived:
-                        if self.adjust_counter < 2:
-                            self.adjust_counter += 1
+                    # if goal_achived:
+                    #     if self.adjust_counter < 2:
+                    #         self.adjust_counter += 1
+                    if self.adjust_counter < 2:
+                        self.adjust_counter += 1
                     time.sleep(1)
 
 if __name__ == '__main__':
