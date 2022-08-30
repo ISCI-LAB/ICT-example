@@ -59,8 +59,6 @@ class Motion_(object):
         )
         self.pregrasp_height = 0.17
         self.grasp_height = 0.11
-        self.default_Q = Quaternion(0.0, 0.0, 0.0, 1.0)
-        self.grasp_Q = Quaternion(0.0, 0.707, 0.0, 0.707)
         self.retract_position = list([-1.5, 0.5, 0.3, -0.7, 0.0])
         self.reset_pan = 0.0
         self.reset_tilt = 0.8
@@ -71,43 +69,12 @@ class Motion_(object):
         rospy.wait_for_service('locobot_grasppoint')
         self.grasppoint_service = rospy.ServiceProxy('locobot_grasppoint', Grasp_Point)
         self.grasp_stage_srv = rospy.Service('baseline_navi/stage_grasp', Stage_Grasp, self.grasp_stage_service_cb)
-        rospy.wait_for_service('pos_cmd')
-        self.goal_service = rospy.ServiceProxy('pos_cmd', command)
         self.client = actionlib.SimpleActionClient(
             "navigation_controller/send_goal",
             MoveBaseAction)
         self.client.wait_for_server()
         self.color = ""
 
-    def loop_service_confirm(self):
-        goal_achived = False
-        while not goal_achived:
-            try:
-                resp = self.goal_service(0, 0, 0, 0)
-                goal_achived = resp.run_completed
-            except rospy.ServiceException, e:
-                print("Service call failed: %s", e)
-
-        return goal_achived
-
-    def pos_cmd_request(self, request_type, request_x, request_y, request_theta):
-        try:
-            resp = self.goal_service(request_type, request_x, request_y, request_theta)
-        except rospy.ServiceException, e:
-            print("Service call failed: %s", e)
-
-    def send_goal(self, goal_x, goal_y, goal_theta):
-        self.pos_cmd_request(2, goal_x, goal_y, 0)
-        goal_achived = self.loop_service_confirm()
-
-        if not goal_achived:
-            print("Fail at type 2 VSLAM Navigation")
-            return False
-
-        self.pos_cmd_request(1, 0, 0, goal_theta)
-        goal_achive = self.loop_service_confirm()
-
-        return goal_achived
 
     def reset(self):
         """ 
@@ -260,25 +227,13 @@ class Motion_(object):
         self.goal.target_pose.pose.orientation.w = w
 
     def grasp_stage_service_cb(self, grasp_request):
-        if grasp_request.request == 1:
+        if grasp_request.request == 0:
             self.reset()
-            #new way to send goal
-            self.set_goal([0, 0, 0],[0, 0, -1.57])
-            self.client.send_goal(self.goal)
-            print("wait for result")
-            self.client.wait_for_result()
-            print("goal reach success")
-            # self.send_goal(0, 0, -1.57)
+            return Stage_GraspResponse(True)
+        elif grasp_request.request == 1:
             print("call grasp.py")
             response = self.grasppoint_service(True)
             self.handle_grasp(response)
-            #new way to send goal
-            self.set_goal([0, 0, 0],[0, 0, 0])
-            self.client.send_goal(self.goal)
-            print("wait for result")
-            self.client.wait_for_result()
-            print("goal reach success")
-            # self.send_goal(0, 0, 0)
             return Stage_GraspResponse(True)
         elif grasp_request.request == 3:
             rospy.loginfo('Opening gripper')
@@ -286,17 +241,6 @@ class Motion_(object):
             rospy.loginfo('Going to placing above pose')
             self.set_pose([0.15,0.0,0.3],roll=0.0)
             rospy.loginfo('back to original point')
-            #new way to send goal
-            goal = MoveBaseGoal()
-            goal.target_pose.pose.position.x = 0.
-            goal.target_pose.pose.position.y = 0.
-            goal.target_pose.pose.position.z = 0.
-            goal.target_pose.pose.orientation.x = 0.
-            goal.target_pose.pose.orientation.y = 0.
-            goal.target_pose.pose.orientation.z = 0.
-            goal.target_pose.pose.orientation.w = 1
-            self.client.send_goal(goal)
-            # self.send_goal(0, 0, 0)
             return Stage_GraspResponse(True)
  
 if __name__ == "__main__":
