@@ -64,65 +64,6 @@ class ApriltagsToGoalPoint(object):
 
 
 
-    # def tagCallback(self, msg_tags):
-    #     if self.stage == 1 :
-    #         goal_pose = PoseStamped()
-    #         self.msg_tags = msg_tags
-    #         self.msg_received = True
-    #     # added goal point pub code
-    #         for tag in self.msg_tags.detections:
-    #             if tag.id[0] == 1:
-    #                 self.tf_broadcast.sendTransform((0.0, -0.0, 0.5),
-    #                                   np.array([-0.5, 0.5, 0.5, 0.5]),
-    #                                   rospy.Time.now(),
-    #                                   'goal',
-    #                                   'tag_1')
-
-    #                 transform_goal = self.tf_buffer.lookup_transform('odom',
-    #                                    'goal', #source frame
-    #                                    rospy.Time(0), #get the tf at first available time
-    #                                    rospy.Duration(1.0))
-
-    #                 (r, p, y) = tf.transformations.euler_from_quaternion([
-    #                                 transform_goal.transform.rotation.x, transform_goal.transform.rotation.y,
-    #                                 transform_goal.transform.rotation.z, transform_goal.transform.rotation.w])
-                    
-                    
-    #                 if self.last_msg == 0:
-    #                     self.last_msg = transform_goal.transform.translation.x
-
-    #                 # For debug
-    #                 # print("adjust_counter: {}, goal: [{}, {}, {}]".format(self.adjust_counter, transform_goal.transform.translation.x, transform_goal.transform.translation.y, y))
-
-    #                 if math.sqrt((self.last_msg - transform_goal.transform.translation.x)**2) > 0.15:
-    #                     print("Tag frame bias too much, skip detection.")
-    #                     continue
-
-    #                 self.last_msg = transform_goal.transform.translation.x
-
-    #                 if self.adjust_counter < 2:
-    #                     print(transform_goal.transform.translation.x)
-    #                     print(transform_goal.transform.translation.y)
-    #                     goal_weight = (self.adjust_counter + 2) * 0.25
-    #                     print(goal_weight)
-    #                     #new way to send goal
-    #                     self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, goal_weight)
-    #                     self.client.send_goal(self.goal)
-    #                     print("wait for result")
-    #                     self.client.wait_for_result()
-    #                     print("goal reach success")
-    #                 else:
-    #                     #new way to send goal
-    #                     self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, 1)
-    #                     self.client.send_goal(self.goal)
-    #                     print("wait for result")
-    #                     self.client.wait_for_result()
-    #                     print("goal reach success")
-    #                     self.stage = 0
-
-    #                 if self.adjust_counter < 2:
-    #                     self.adjust_counter += 1
-    #                 time.sleep(1)
     def tagCallback(self, msg_tags):
         if self.stage == 1 :
             goal_pose = PoseStamped()

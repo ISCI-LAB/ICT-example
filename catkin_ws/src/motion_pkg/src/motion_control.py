@@ -229,6 +229,7 @@ class Motion_(object):
     def grasp_stage_service_cb(self, grasp_request):
         if grasp_request.request == 0:
             self.reset()
+            time.sleep(1)
             return Stage_GraspResponse(True)
         elif grasp_request.request == 1:
             print("call grasp.py")

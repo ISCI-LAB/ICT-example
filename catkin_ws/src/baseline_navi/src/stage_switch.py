@@ -34,29 +34,17 @@ class StageSwitch(object):
     def start_cb(self, start_msg):
         if start_msg.data == 1:
             self.grasp_service(0) #reset for arm and camera
-            self.set_goal_euler([0, 0, 0],[0, 0, -1.57]) #turn to object
-            self.client.send_goal(self.goal) 
-            self.client.wait_for_result()
             self.grasp_service(1) #grasp object
             self.set_goal_euler([0, 0, 0],[0, 0, 0]) #turn back
-            self.client.send_goal(self.goal)
-            self.client.wait_for_result()
             coordinate = self.totag_service(True) #get apriltag's coordinate
             self.set_goal_quaternion(coordinate, 0.5)
-            self.client.send_goal(self.goal)
-            self.client.wait_for_result()
             coordinate = self.totag_service(True) #get apriltag's coordinate
             self.set_goal_quaternion(coordinate, 0.75)
-            self.client.send_goal(self.goal)
-            self.client.wait_for_result()
             coordinate = self.totag_service(True) #get apriltag's coordinate
             self.set_goal_quaternion(coordinate)
-            self.client.send_goal(self.goal)
-            self.client.wait_for_result()
             self.grasp_service(3) #get back to original place
             self.set_goal_euler([0, 0, 0],[0, 0, 0])
-            self.client.send_goal(self.goal)
-            self.client.wait_for_result()
+
 
 
     def set_goal_euler(self, translation, rotation, weight = 1):
@@ -68,6 +56,8 @@ class StageSwitch(object):
         self.goal.target_pose.pose.orientation.y = y
         self.goal.target_pose.pose.orientation.z = z
         self.goal.target_pose.pose.orientation.w = w
+        self.client.send_goal(self.goal)
+        self.client.wait_for_result()
     
     def set_goal_quaternion(self, coordinate, weight = 1):
         self.goal.target_pose.pose.position.x = coordinate.x * weight
@@ -77,7 +67,8 @@ class StageSwitch(object):
         self.goal.target_pose.pose.orientation.y = coordinate.ry
         self.goal.target_pose.pose.orientation.z = coordinate.rz
         self.goal.target_pose.pose.orientation.w = coordinate.rw
-
+        self.client.send_goal(self.goal)
+        self.client.wait_for_result()
     
 
 if __name__ == "__main__":
