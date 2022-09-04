@@ -56,7 +56,7 @@ class GraspTorchObj(object):
         for i, (name, module) in enumerate(self.model._modules.items()):
             module = self.recursion_change_bn(self.model)
         self.model.eval()
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
         self.image_size = 224
         if is_gpu:
             self.model = self.model.cuda()
