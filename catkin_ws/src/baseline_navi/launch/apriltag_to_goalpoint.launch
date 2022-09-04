@@ -1,3 +1,0 @@
-<launch>
-    <node pkg="baseline_navi" type="apriltags_to_goalpoint.py" name="apriltags_to_goalpoint" output="screen"/>
-</launch>

@@ -58,7 +58,6 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   Motion.srv
    Grasp_Point.srv
    #Service2.srv
  )

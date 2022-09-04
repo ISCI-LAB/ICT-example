@@ -1,6 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
 <launch>
-    <include file="$(find baseline_navi)/launch/locobot_grasp.launch"/>
-    <include file="$(find motion_pkg)/launch/motion_pkg_demo.launch"/>
-    <include file="$(find navigation_controller)/launch/navigation.launch"/>
-    
+    <arg name="use_sim" default="false"/>
+
+    <node pkg="baseline_navi" type="stage_switch.py" name="stage_switch" output="screen" />
+    <node pkg="baseline_navi" type="apriltags_to_goalpoint.py" name="apriltags_to_goalpoint" output="screen" />
+    <node pkg="baseline_navi" type="locobot_grasp.py" name="locobot_grasp" output="screen" />
+    <include file="$(find motion_pkg)/launch/motion_pkg_demo.launch" />
+    <group if="$(arg use_sim)">
+        <include file="$(find apriltag_ros)/launch/continuous_detection.launch">
+            <arg name="image_topic" value="image_raw"/>
+        </include>
+    </group>
+    <group unless="$(arg use_sim)">
+        <include file="$(find apriltag_ros)/launch/continuous_detection.launch" />
+    </group>
 </launch>
