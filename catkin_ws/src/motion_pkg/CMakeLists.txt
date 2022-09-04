@@ -59,6 +59,7 @@ find_package(catkin REQUIRED COMPONENTS
  add_service_files(
    FILES
    Motion.srv
+   Grasp_Point.srv
    #Service2.srv
  )
 

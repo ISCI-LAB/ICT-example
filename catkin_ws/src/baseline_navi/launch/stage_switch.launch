@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="baseline_navi" type="stage_switch.py" name="stage_switch" output="screen"/>
+</launch>

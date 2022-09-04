@@ -13,6 +13,7 @@ import sys
 
 import numpy as np
 import torch
+import torch.nn as nn
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
@@ -40,6 +41,15 @@ class GraspTorchObj(object):
             :type model_path: string
             :type transform: A torchvision.Transform object
             """
+        # torch.nn.Module.dump_patches = True
+        # self.model = torch.load(model_path).eval()
+        # self.image_size = 224
+        # if is_gpu:
+        #     self.model = self.model.cuda()
+        # if transform is None:
+        #     self.transform = self.get_default_transform()
+        # else:
+        #     self.transform = transform
         torch.nn.Module.dump_patches = True
         check_point = torch.load(model_path)
         self.model = check_point
@@ -54,6 +64,7 @@ class GraspTorchObj(object):
             self.transform = self.get_default_transform()
         else:
             self.transform = transform
+
 
     def test_one_batch(self, x, h, w,
                        angle_labels, robot_labels,

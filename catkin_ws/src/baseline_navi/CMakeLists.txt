@@ -35,6 +35,8 @@ add_message_files(
 add_service_files(
   FILES
   StageChange.srv
+  Stage_Grasp.srv
+  Stage_Totag.srv
 )
 
 generate_messages(

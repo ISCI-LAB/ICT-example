@@ -50,15 +50,15 @@ RUN apt-get update && apt-get install -y \
 RUN sudo wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
 RUN sudo python get-pip.py
 RUN python -m pip install -U setuptools
-
+RUN ln -s /usr/include/eigen3/Eigen /usr/include/Eigen
 
 RUN cd ${HOME}/
-
-RUN curl 'https://raw.githubusercontent.com/jack6099boy/pyrobot/master/robots/LoCoBot/install/locobot_install_all.sh' > locobot_install_all.sh && chmod +x locobot_install_all.sh
+RUN cd ${HOME}/
+RUN curl 'https://raw.githubusercontent.com/ISCI-LAB/pyrobot/master/robots/LoCoBot/install/locobot_install_all.sh' > locobot_install_all.sh && chmod +x locobot_install_all.sh
 
 RUN ./locobot_install_all.sh -t sim_only -p 2 -l interbotix
 
-RUN rm locobot_install_all.sh
+# RUN rm locobot_install_all.sh
 
 # install ros-melodic
 RUN sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' 
