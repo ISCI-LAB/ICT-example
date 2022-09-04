@@ -41,7 +41,12 @@ class GraspTorchObj(object):
             :type transform: A torchvision.Transform object
             """
         torch.nn.Module.dump_patches = True
-        self.model = torch.load(model_path).eval()
+        check_point = torch.load(model_path)
+        self.model = check_point
+        for i, (name, module) in enumerate(self.model._modules.items()):
+            module = self.recursion_change_bn(self.model)
+        self.model.eval()
+        self.model.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
         self.image_size = 224
         if is_gpu:
             self.model = self.model.cuda()
@@ -174,3 +179,11 @@ class GraspTorchObj(object):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         return image_transforms
+
+    def recursion_change_bn(self, module):
+        if isinstance(module, torch.nn.BatchNorm2d):
+            module.track_running_stats = 1
+        else:
+            for i, (name, module1) in enumerate(module._modules.items()):
+                module1 = self.recursion_change_bn(module1)
+        return module
