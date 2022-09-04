@@ -2,23 +2,20 @@
 
 import rospy
 import actionlib
-from baseline_navi.srv import StageChange, StageChangeResponse
 from baseline_navi.srv import Stage_Grasp, Stage_GraspResponse
 from baseline_navi.srv import Stage_Totag, Stage_TotagResponse
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from navigation_controller.srv import command
-from baseline_navi.msg import TaskStage
 from geometry_msgs.msg import PoseStamped
 from tf import transformations
 import tf2_ros
 import tf2_geometry_msgs
 from std_msgs.msg import Int32
 
+
 class StageSwitch(object):
     def __init__(self):
         self.stage = 0
         self.start_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.start_cb, queue_size=1)
-        self.stage_pub = rospy.Publisher("baseline_navi/current_stage", TaskStage, queue_size = 1)
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1200.0))
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         self.goal = MoveBaseGoal()
@@ -30,24 +27,22 @@ class StageSwitch(object):
             "navigation_controller/send_goal",
             MoveBaseAction)
         self.client.wait_for_server()
-    
+
     def start_cb(self, start_msg):
         if start_msg.data == 1:
-            self.grasp_service(0) #reset for arm and camera
-            self.grasp_service(1) #grasp object
-            self.set_goal_euler([0, 0, 0],[0, 0, 0]) #turn back
-            coordinate = self.totag_service(True) #get apriltag's coordinate
+            self.grasp_service(0)  # reset for arm and camera
+            self.grasp_service(1)  # grasp object
+            self.set_goal_euler([0, 0, 0],[0, 0, 0])  # turn back
+            coordinate = self.totag_service(True)  # get apriltag's coordinate
             self.set_goal_quaternion(coordinate, 0.5)
-            coordinate = self.totag_service(True) #get apriltag's coordinate
+            coordinate = self.totag_service(True)  # get apriltag's coordinate
             self.set_goal_quaternion(coordinate, 0.75)
-            coordinate = self.totag_service(True) #get apriltag's coordinate
+            coordinate = self.totag_service(True)  # get apriltag's coordinate
             self.set_goal_quaternion(coordinate)
-            self.grasp_service(3) #get back to original place
-            self.set_goal_euler([0, 0, 0],[0, 0, 0])
+            self.grasp_service(3)  # get back to original place
+            self.set_goal_euler([0, 0, 0], [0, 0, 0])
 
-
-
-    def set_goal_euler(self, translation, rotation, weight = 1):
+    def set_goal_euler(self, translation, rotation, weight=1):
         self.goal.target_pose.pose.position.x = translation[0] * weight
         self.goal.target_pose.pose.position.y = translation[1] * weight
         self.goal.target_pose.pose.position.z = translation[2] * weight
@@ -58,8 +53,8 @@ class StageSwitch(object):
         self.goal.target_pose.pose.orientation.w = w
         self.client.send_goal(self.goal)
         self.client.wait_for_result()
-    
-    def set_goal_quaternion(self, coordinate, weight = 1):
+
+    def set_goal_quaternion(self, coordinate, weight=1):
         self.goal.target_pose.pose.position.x = coordinate.x * weight
         self.goal.target_pose.pose.position.y = coordinate.y * weight
         self.goal.target_pose.pose.position.z = coordinate.z * weight
@@ -69,7 +64,7 @@ class StageSwitch(object):
         self.goal.target_pose.pose.orientation.w = coordinate.rw
         self.client.send_goal(self.goal)
         self.client.wait_for_result()
-    
+
 
 if __name__ == "__main__":
     rospy.init_node('stage_switch')

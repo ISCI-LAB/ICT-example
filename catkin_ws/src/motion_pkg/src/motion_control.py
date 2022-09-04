@@ -15,21 +15,12 @@ import copy
 import signal
 import sys
 import time
-
 import numpy as np
 import rospy
-import actionlib
-from geometry_msgs.msg import Quaternion, PointStamped, PoseStamped
 from pyrobot import Robot
-from tf import TransformListener, transformations
-from motion_pkg.srv import Motion,MotionResponse
+from tf import TransformListener
 from motion_pkg.srv import Grasp_Point, Grasp_PointResponse
-from baseline_navi.srv import StageChange
 from baseline_navi.srv import Stage_Grasp, Stage_GraspResponse
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from baseline_navi.msg import TaskStage
-from std_msgs.msg import Int32, Bool
-from navigation_controller.srv import command
 
 BB_SIZE = 5
 MAX_DEPTH = 3.0
@@ -40,7 +31,6 @@ MIN_DEPTH = 0.1
 N_SAMPLES = 100
 PATCH_SIZE = 100
 
-from IPython import embed
 
 class Motion_(object):
     """
@@ -49,35 +39,25 @@ class Motion_(object):
 
     def __init__(self):
                 # TODO - use planning_mode=no_plan, its better
-        # self.robot = Robot(
-        #     "locobot_kobuki",
-        #     arm_config={"use_moveit": True, "moveit_planner": "ESTkConfigDefault"},
-        # )
         self.robot = Robot(
             "locobot",
             arm_config={"use_moveit": True, "moveit_planner": "ESTkConfigDefault"},
         )
-        self.pregrasp_height = 0.17
-        self.grasp_height = 0.11
+        self.pregrasp_height = 0.2
+        self.grasp_height = 0.13
         self.retract_position = list([-1.5, 0.5, 0.3, -0.7, 0.0])
         self.reset_pan = 0.0
         self.reset_tilt = 0.8
         self.n_tries = 5
-        self._sleep_time = 2.5
+        self._sleep_time = 2
         self._transform_listener = TransformListener()
-        self.goal = MoveBaseGoal()
         rospy.wait_for_service('locobot_grasppoint')
         self.grasppoint_service = rospy.ServiceProxy('locobot_grasppoint', Grasp_Point)
         self.grasp_stage_srv = rospy.Service('baseline_navi/stage_grasp', Stage_Grasp, self.grasp_stage_service_cb)
-        self.client = actionlib.SimpleActionClient(
-            "navigation_controller/send_goal",
-            MoveBaseAction)
-        self.client.wait_for_server()
         self.color = ""
 
-
     def reset(self):
-        """ 
+        """
         Resets the arm to it's retract position.
         :returns: Success of the reset procedure
         :rtype: bool
@@ -85,7 +65,7 @@ class Motion_(object):
         success = False
         for _ in range(self.n_tries):
             success = self.robot.arm.set_joint_positions(self.retract_position)
-            if success == True:
+            if success:
                 break
         self.robot.gripper.open()
         self.robot.camera.set_pan(self.reset_pan)
@@ -93,9 +73,9 @@ class Motion_(object):
         return success
 
     def grasp(self, grasp_pose):
-        """ 
+        """
         Performs manipulation operations to grasp at the desired pose.
-        
+
         :param grasp_pose: Desired grasp pose for grasping.
         :type grasp_pose: list
         :returns: Success of grasping procedure.
@@ -120,14 +100,13 @@ class Motion_(object):
 
         rospy.loginfo("Going to pre-grasp pose")
         result = self.set_pose(pregrasp_position, roll=grasp_angle)
-        if not result:
-            return False
         time.sleep(1)
+        return result
 
     def set_pose(self, position, pitch=DEFAULT_PITCH, roll=0.0):
-        """ 
+        """
         Sets desired end-effector pose.
-        
+
         :param position: End-effector position to reach.
         :param pitch: Pitch angle of the end-effector.
         :param roll: Roll angle of the end-effector
@@ -150,10 +129,10 @@ class Motion_(object):
         return success
 
     def get_grasp_angle(self, grasp_pose):
-        """ 
+        """
         Obtain normalized grasp angle from the grasp pose.
         This is needs since the grasp angle is relative to the end effector.
-        
+
         :param grasp_pose: Desired grasp pose for grasping.
         :type grasp_pose: list
         :returns: Relative grasp angle
@@ -191,13 +170,12 @@ class Motion_(object):
             assert  success
         except:
             rospy.logerr("Arm reset failed")
-        grasp_pose = [req.x,req.y,req.theta]
-        #grasp_pose = motion.compute_grasp(display_grasp=False)
-        print("\n\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
+        grasp_pose = [req.x, req.y, req.theta]
+        print("\n Grasp Pose: \n\n {} \n\n".format(grasp_pose))
         self.robot.camera.set_tilt(0.0)
         self.grasp(grasp_pose)
 
-        #robotics arm placing
+        # robotics arm placing
         rospy.loginfo('Going to placing pose')
         print(self.color)
         if self.color == 'red':
@@ -209,41 +187,26 @@ class Motion_(object):
         elif self.color == 'blue':
             result = self.set_pose([0.114, -0.235, 0.3], roll=0.0)
             print("blue")
-        if not result:
-            print("False")
-            return False
         time.sleep(self._sleep_time)
-
-        return MotionResponse("ok")
-
-    def set_goal(self, translation, rotation):
-        self.goal.target_pose.pose.position.x = translation[0]
-        self.goal.target_pose.pose.position.y = translation[1]
-        self.goal.target_pose.pose.position.z = translation[2]
-        (x, y, z, w) = transformations.quaternion_from_euler(rotation[0], rotation[1], rotation[2])
-        self.goal.target_pose.pose.orientation.x = x
-        self.goal.target_pose.pose.orientation.y = y
-        self.goal.target_pose.pose.orientation.z = z
-        self.goal.target_pose.pose.orientation.w = w
+        return result
 
     def grasp_stage_service_cb(self, grasp_request):
         if grasp_request.request == 0:
             self.reset()
             time.sleep(1)
-            return Stage_GraspResponse(True)
         elif grasp_request.request == 1:
             print("call grasp.py")
             response = self.grasppoint_service(True)
             self.handle_grasp(response)
-            return Stage_GraspResponse(True)
         elif grasp_request.request == 3:
             rospy.loginfo('Opening gripper')
             self.robot.gripper.open()
             rospy.loginfo('Going to placing above pose')
-            self.set_pose([0.15,0.0,0.3],roll=0.0)
+            self.set_pose([0.15, 0.0, 0.3], roll=0.0)
             rospy.loginfo('back to original point')
-            return Stage_GraspResponse(True)
- 
+        return Stage_GraspResponse(True)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process args for grasper")
     parser.add_argument('--n_grasps', help='Number of grasps for inference', type=int, default=5)
