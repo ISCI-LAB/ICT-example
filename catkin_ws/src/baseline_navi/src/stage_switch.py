@@ -35,7 +35,7 @@ class StageSwitch(object):
         if start_msg.data == 1:
             self.grasp_service(0) #reset for arm and camera
             self.grasp_service(1) #grasp object
-            self.set_goal_euler([0, 0, 0],[0, 0, 0]) #turn back
+            self.set_goal_euler([0, 0, 0],[0, 0, 1.57]) #turn back
             coordinate = self.totag_service(True) #get apriltag's coordinate
             self.set_goal_quaternion(coordinate, 0.5)
             coordinate = self.totag_service(True) #get apriltag's coordinate
