@@ -20,12 +20,8 @@ import rospy
 from geometry_msgs.msg import Quaternion, PointStamped
 from tf import TransformListener
 from std_msgs.msg import Int32
-from baseline_navi.srv import StageChange, StageChangeResponse
-from baseline_navi.msg import TaskStage 
-from baseline_navi.srv import StageChange
-from motion_pkg.srv import Motion
+from motion_pkg.srv import Grasp_Point, Grasp_PointResponse
 from sensor_msgs.msg import Image, CameraInfo
-from IPython import embed
 from cv_bridge import CvBridge, CvBridgeError
 sys.path.append(os.path.expanduser("~") + "/ICT-example/third_party")
 from grasp_samplers.grasp_model import GraspModel
@@ -76,33 +72,10 @@ class Grasp_pose(object):
         self.image_rgb = None
         self.image_depth = None
         self.camera_info = None
-        self.stage_sub = rospy.Subscriber('locobot_motion/grasp_start', Int32, self.stage_cb, queue_size=1)
-        self.image_sub = rospy.Subscriber('camera/color/image_rect_color', Image, self.image_cb, queue_size=1)
+        self.image_sub = rospy.Subscriber('camera/color/image_raw', Image, self.image_cb, queue_size=1)
         self.camera_info_sub = rospy.Subscriber('camera/color/camera_info', CameraInfo, self.camera_info_cb, queue_size=1)
-        self.depth_sub = rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_cb, queue_size=1)
-        rospy.wait_for_service('locobot_motion')
-        self.motion_service = rospy.ServiceProxy('locobot_motion', Motion)
-        rospy.wait_for_service('baseline_navi/stage_request')
-        self.stage_service = rospy.ServiceProxy('baseline_navi/stage_request', StageChange)
-
-    def stage_srv_call(self):
-        try:
-            resp = self.stage_service(2, "locobot_grasp")
-            if resp.success :
-                print("success change stage to 2")
-        except rospy.ServiceException, e:
-            print("Service call failed: %s", e)
-
-    def stage_cb(self, stage_msg):
-        if stage_msg.data == 1:
-            pred_grasp = self.compute_grasp()
-            print("Pred grasp: {}".format(pred_grasp))
-            try:
-                resp = self.motion_service(pred_grasp[0], pred_grasp[1], pred_grasp[2], self.color)
-                if resp.status == "ok":
-                    self.stage_srv_call()
-            except rospy.ServiceException, e:
-                print("Service call failed: %s", e)
+        self.depth_sub = rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_cb, queue_size=1)
+        self.grasppoint_srv = rospy.Service('locobot_grasppoint', Grasp_Point, self.handle_grasp)
 
     def image_cb(self, image_msg):
         try:
@@ -115,15 +88,15 @@ class Grasp_pose(object):
 
     def depth_cb(self, depth_msg):
         try:
-            self.image_depth = self.bridge.imgmsg_to_cv2(depth_msg, "passthrough")
+            self.image_depth = self.bridge.imgmsg_to_cv2(depth_msg, "passthrough").copy()
+            self.image_depth[np.isnan(self.image_depth)] = 0.
         except CvBridgeError, e:
             print(e)
 
     def _process_depth(self, cur_depth=None):
         if cur_depth is None:
             cur_depth = self.image_depth
-        cur_depth = cur_depth / 1000.  # conversion from mm to m
-        cur_depth[cur_depth > MAX_DEPTH] = 0.
+        cur_depth[self.image_depth > MAX_DEPTH] = 0.
         return cur_depth
 
     def _get_z_mean(self, depth, pt, bb=BB_SIZE):
@@ -197,7 +170,7 @@ class Grasp_pose(object):
         :returns: Grasp configuration
         :rtype: list
         """
-
+        print("Compute grasp pose")
         img = self.image_rgb
         img = img[dims[0][0]:dims[0][1], dims[1][0]:dims[1][1]]
         selected_grasp = list(self.grasp_model.predict(img))
@@ -224,6 +197,12 @@ class Grasp_pose(object):
             self.grasp_model.display_predicted_image()
 
         return selected_grasp
+
+    def handle_grasp(self, request):
+        pred_grasp = self.compute_grasp()
+        print("Pred grasp: {}".format(pred_grasp))
+        return Grasp_PointResponse(pred_grasp[0], pred_grasp[1], pred_grasp[2], self.color)
+
 
 def main():
     """

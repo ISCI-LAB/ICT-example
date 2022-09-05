@@ -1,6 +1,6 @@
+bool request
+---
 float64 x
 float64 y
 float64 theta
 string color
----
-string status
