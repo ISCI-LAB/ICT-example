@@ -95,8 +95,8 @@ class Grasp_pose(object):
 
     def _process_depth(self, cur_depth=None):
         if cur_depth is None:
-            cur_depth = self.image_depth
-        cur_depth[self.image_depth > MAX_DEPTH] = 0.
+            cur_depth = self.image_depth.astype(np.float) / 1000 if np.max(self.image_depth) > 20. else self.image_depth
+        cur_depth[cur_depth > MAX_DEPTH] = 0.
         return cur_depth
 
     def _get_z_mean(self, depth, pt, bb=BB_SIZE):
