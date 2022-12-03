@@ -1,3 +1,4 @@
 uint32 request
 ---
+string color
 bool success

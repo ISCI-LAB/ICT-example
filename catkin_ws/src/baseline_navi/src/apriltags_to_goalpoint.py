@@ -8,75 +8,83 @@ import tf2_ros
 import tf
 from baseline_navi.srv import Stage_Totag, Stage_TotagResponse
 import math
+import actionlib
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 
 class ApriltagsToGoalPoint(object):
     def __init__(self):
         # Setup the node
         self.msg_received = False
-        self.msg_tags = AprilTagDetectionArray()
-        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1200.0)) #tf buffer length
+        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(1200.0))  # tf buffer length
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         self.tf_broadcast = tf.TransformBroadcaster()
-        self.stage = False
-        self.adjust_counter = 0
-        self.last_msg = 0
-        self.rate = rospy.Rate(5)
-        self.goal = PoseStamped()
+        self.tag_id = None
+        self.map_frame_id = rospy.get_param("/calculat_navigation_cmd/map_frame_id")
         # Setup the publisher and subscriber
         self.sub_tag = rospy.Subscriber("tag_detections", AprilTagDetectionArray, self.tagCallback)
         self.motion_stage_srv = rospy.Service('baseline_navi/stage_totag', Stage_Totag, self.totag_stage_service_cb)
+        self.client = actionlib.SimpleActionClient(
+            "navigation_controller/send_goal",
+            MoveBaseAction)
+        self.client.wait_for_server()
 
     def totag_stage_service_cb(self, totag_request):
-        self.stage = True
-        while self.stage:
-            self.rate.sleep()
-        return Stage_TotagResponse(
-            self.goal.pose.position.x, self.goal.pose.position.y, self.goal.pose.position.z,
-            self.goal.pose.orientation.x, self.goal.pose.orientation.y, self.goal.pose.orientation.z,
-            self.goal.pose.orientation.w)
+        self.tag_id = totag_request.tag_id
+        if not self.msg_received:
+            return Stage_TotagResponse(0, 0, 999, 0, 0, 0, 0)
+        else:
+            goal = self.coordinate_projection()
+            if goal is not None:
+                return Stage_TotagResponse(
+                    goal.pose.position.x, goal.pose.position.y, goal.pose.position.z,
+                    goal.pose.orientation.x, goal.pose.orientation.y, goal.pose.orientation.z,
+                    goal.pose.orientation.w)
+            else:
+                return Stage_TotagResponse(0, 0, 999, 0, 0, 0, 0)
 
     def set_goal(self, translation, rotation, weight):
-        self.goal.pose.position.x = translation.x * weight
-        self.goal.pose.position.y = translation.y * weight
-        self.goal.pose.position.z = translation.z * weight
-        self.goal.pose.orientation.x = rotation.x
-        self.goal.pose.orientation.y = rotation.y
-        self.goal.pose.orientation.z = rotation.z
-        self.goal.pose.orientation.w = rotation.w
+        goal = PoseStamped()
+        goal.pose.position.x = translation.x * weight
+        goal.pose.position.y = translation.y * weight
+        goal.pose.position.z = 0.
+        goal.pose.orientation.x = rotation.x
+        goal.pose.orientation.y = rotation.y
+        goal.pose.orientation.z = rotation.z
+        goal.pose.orientation.w = rotation.w
+        return goal
 
     def tagCallback(self, msg_tags):
-        if self.stage:
-            self.msg_tags = msg_tags
-            self.msg_received = True
-        # added goal point pub code
-            for tag in self.msg_tags.detections:
-                if tag.id[0] == 1:
-                    self.tf_broadcast.sendTransform((0.0, -0.0, 0.5),
-                                      np.array([-0.5, 0.5, 0.5, 0.5]),
-                                      rospy.Time.now(),
-                                      'goal',
-                                      'tag_1')
+        tag_id_check = False
 
-                    transform_goal = self.tf_buffer.lookup_transform(
-                        'odom',
-                        'goal',  # source frame
-                        rospy.Time(0),  # get the tf at first available time
-                        rospy.Duration(1.0))
+        for tag in msg_tags.detections:
+            if tag.id[0] == self.tag_id:
+                tag_id_check = True
+                break
+        self.msg_received = tag_id_check
 
-                    if self.last_msg == 0:
-                        self.last_msg = transform_goal.transform.translation.x
+    def coordinate_projection(self):
+        for timeout_counter in range(5):
+            try:
+                self.tf_broadcast.sendTransform(
+                    (0.0, -0.0, 0.5),
+                    np.array([-0.5, 0.5, 0.5, 0.5]),
+                    rospy.Time.now(),
+                    'goal',
+                    'tag_{}'.format(self.tag_id))
 
-                    # For debug
-                    # print("adjust_counter: {}, goal: [{}, {}, {}]".format(self.adjust_counter, transform_goal.transform.translation.x, transform_goal.transform.translation.y, y))
+                transform_goal = self.tf_buffer.lookup_transform(
+                    self.map_frame_id,
+                    'goal',  # source frame
+                    rospy.Time(0),  # get the tf at first available time
+                    rospy.Duration(1.0))
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+                rospy.logerr(e)
+                continue
 
-                    if math.sqrt((self.last_msg - transform_goal.transform.translation.x)**2) > 0.15:
-                        print("Tag frame bias too much, skip detection.")
-                        continue
-
-                    self.last_msg = transform_goal.transform.translation.x
-                    self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, 1)
-                    self.stage = False
+            goal = self.set_goal(transform_goal.transform.translation, transform_goal.transform.rotation, 1)
+            return goal
+        return None
 
 
 if __name__ == '__main__':

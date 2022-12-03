@@ -49,7 +49,7 @@ class Motion_(object):
         self.reset_pan = 0.0
         self.reset_tilt = 0.8
         self.n_tries = 5
-        self._sleep_time = 2
+        self._sleep_time = 1
         self._transform_listener = TransformListener()
         rospy.wait_for_service('locobot_grasppoint')
         self.grasppoint_service = rospy.ServiceProxy('locobot_grasppoint', Grasp_Point)
@@ -202,9 +202,9 @@ class Motion_(object):
             rospy.loginfo('Opening gripper')
             self.robot.gripper.open()
             rospy.loginfo('Going to placing above pose')
-            self.set_pose([0.15, 0.0, 0.3], roll=0.0)
+            self.set_pose([0.25, 0.0, 0.3], roll=0.0)
             rospy.loginfo('back to original point')
-        return Stage_GraspResponse(True)
+        return Stage_GraspResponse(self.color, True)
 
 
 if __name__ == "__main__":
