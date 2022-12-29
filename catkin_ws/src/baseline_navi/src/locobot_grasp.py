@@ -17,6 +17,7 @@ import sys
 import time
 import numpy as np
 import rospy
+import message_filters
 from geometry_msgs.msg import Quaternion, PointStamped
 from tf import TransformListener
 from std_msgs.msg import Int32
@@ -72,24 +73,20 @@ class Grasp_pose(object):
         self.image_rgb = None
         self.image_depth = None
         self.camera_info = None
-        self.image_sub = rospy.Subscriber('camera/color/image_raw', Image, self.image_cb, queue_size=1)
-        self.camera_info_sub = rospy.Subscriber('camera/color/camera_info', CameraInfo, self.camera_info_cb, queue_size=1)
-        self.depth_sub = rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_cb, queue_size=1)
+        self.image_sub = message_filters.Subscriber('camera/color/image_raw', Image)
+        self.camera_info_sub = message_filters.Subscriber('camera/color/camera_info', CameraInfo)
+        self.depth_sub = message_filters.Subscriber('/camera/aligned_depth_to_color/image_raw', Image)
         self.grasppoint_srv = rospy.Service('locobot_grasppoint', Grasp_Point, self.handle_grasp)
+        time_sync = message_filters.TimeSynchronizer([self.image_sub, self.camera_info_sub, self.depth_sub], 10)
+        time_sync.registerCallback(self.image_cb)
 
-    def image_cb(self, image_msg):
+    def image_cb(self, image_msg, info_msg, depth_msg):
         try:
             self.image_rgb = self.bridge.imgmsg_to_cv2(image_msg, "rgb8")
-        except CvBridgeError, e:
-            print(e)
-
-    def camera_info_cb(self, info_msg):
-        self.camera_info = np.array(info_msg.P).reshape(3, 4)
-
-    def depth_cb(self, depth_msg):
-        try:
+            self.camera_info = np.array(info_msg.P).reshape(3, 4)
             self.image_depth = self.bridge.imgmsg_to_cv2(depth_msg, "passthrough").copy()
             self.image_depth[np.isnan(self.image_depth)] = 0.
+            self.image_time = image_msg.header.stamp
         except CvBridgeError, e:
             print(e)
 
